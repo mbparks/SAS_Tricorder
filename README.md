@@ -1,10 +1,11 @@
+<img width="2048" height="2048" alt="sas_tricorder" src="https://github.com/user-attachments/assets/6be9be72-7b8e-415e-9dc1-edceb5ef0f3a" />
+
 # MK-VII Field Scanner
 
 A handheld "tricorder" simulator built as a single-page web app. Pure HTML/JS/CSS, no build step required — just open `index.html` in a browser. Inspired by classic spacecraft-bridge UIs: monospace fonts, cyan-on-black, status dots, letterspaced caps, the works.
 
-Live demo: [your URL here]
+Live demo: [https://mbparks.com/tri](Tricorder Demo)
 
-![screenshot placeholder — drop a screenshot of the device here]
 
 ## What it does
 
