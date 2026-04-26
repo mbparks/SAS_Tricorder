@@ -385,6 +385,12 @@ const riskColor = (r) => ({
   EXTREME: C.red,
   "\u2014": C.textDim
 })[r] || C.textDim;
+const riskSoundId = (r) => {
+  if (r === "EXTREME") return "resolve_alarm";
+  if (r === "HIGH") return "resolve_warn";
+  if (r === "CAUTION" || r === "UNKNOWN") return "resolve_caution";
+  return "resolve_clean";
+};
 const Dot = ({ color, blink }) => /* @__PURE__ */ React.createElement("span", { style: {
   display: "inline-block",
   width: 6,
@@ -576,6 +582,93 @@ const SCAN_MODES = [
       }
       return pts;
     }
+  },
+  {
+    // OPT — visual/optical scan via the device camera. Unlike the
+    // other modes, this swaps the spectrogram for a live camera
+    // viewfinder. Sample selection is pseudo-deterministic: the
+    // average brightness, color balance, and pixel variance of the
+    // current frame seed which sample gets returned, so pointing at
+    // the same scene tends to yield the same reading.
+    id: "OPT",
+    label: "OPT",
+    usesCamera: true,
+    samples: [
+      {
+        subject: "Organic surface",
+        spec: "Cellulose / chitin matrix \xB7 biotic origin",
+        vitals: [["STRUCT", "fibrous", C.green], ["ALBEDO", "0.34", C.cyan], ["BIO", "probable", C.green], ["AGE", "< 1 yr", C.cyan]],
+        notes: "Living or recently-living organic matter. Sample-safe.",
+        risk: "NONE"
+      },
+      {
+        subject: "Manufactured object",
+        spec: "Tooled \xB7 synthetic polymers",
+        vitals: [["MAT", "composite", C.cyan], ["SYM", "engineered", C.cyan], ["WEAR", "moderate", C.amber], ["ORIGIN", "known", C.green]],
+        notes: "Artificial construction. Standard human-made artifact.",
+        risk: "NONE"
+      },
+      {
+        subject: "Mineral aggregate",
+        spec: "Inorganic \xB7 silicate dominant",
+        vitals: [["HARD", "6 Mohs", C.cyan], ["GRAIN", "fine", C.cyan], ["LUSTER", "matte", C.textDim], ["RAD", "baseline", C.green]],
+        notes: "Common rock or rock-like material. No anomalies.",
+        risk: "NONE"
+      },
+      {
+        subject: "Reflective surface",
+        spec: "High-albedo \xB7 likely metallic",
+        vitals: [["ALBEDO", "0.78", C.amber], ["COND", "high", C.cyan], ["TEMP", "ambient", C.green], ["CORR", "trace", C.cyan]],
+        notes: "Polished or metallic. Possible electromagnetic shielding.",
+        risk: "LOW"
+      },
+      {
+        subject: "Bioluminescent flora",
+        spec: "Class-M photosynthetic \xB7 emissive",
+        vitals: [["LUM", "2.1 cd/m\xB2", C.green], ["CHL", "present", C.green], ["TOXIN", "trace", C.amber], ["HYDRO", "68%", C.cyan]],
+        notes: "Photosynthetic with secondary luminescence. Beautiful, mildly toxic.",
+        risk: "LOW"
+      },
+      {
+        subject: "Anomalous geometry",
+        spec: "Non-euclidean tiling detected",
+        vitals: [["SYM", "aperiodic", C.amber], ["DIM", "2.7\xB1", C.amber], ["ORIGIN", "?", C.amber], ["SCAN", "incomplete", C.amber]],
+        notes: "Pattern resists standard classification. Flag for retrieval.",
+        risk: "UNKNOWN"
+      },
+      {
+        subject: "Atmospheric haze",
+        spec: "Suspended particulates \xB7 dense",
+        vitals: [["VIS", "42 m", C.amber], ["PART", "silica?", C.cyan], ["CHEM", "inert", C.green], ["RH", "81%", C.cyan]],
+        notes: "Visibility reduced. Particulate analysis recommended.",
+        risk: "LOW"
+      },
+      {
+        subject: "Low-light field",
+        spec: "Insufficient illumination",
+        vitals: [["LUM", "0.2 lx", C.textDim], ["IR", "baseline", C.cyan], ["MOTION", "none", C.textDim], ["CONF", "low", C.amber]],
+        notes: "Scan confidence reduced. Increase illumination or switch modes.",
+        risk: "\u2014"
+      },
+      {
+        subject: "Saturated frame",
+        spec: "Sensor over-exposed",
+        vitals: [["LUM", "> 50k lx", C.amber], ["UV", "elevated", C.amber], ["IR", "high", C.amber], ["CONF", "poor", C.red]],
+        notes: "Direct light source in field. Avert sensor and retry.",
+        risk: "CAUTION"
+      },
+      {
+        subject: "Dynamic motion",
+        spec: "Frame-to-frame deviation high",
+        vitals: [["DELTA", "0.41", C.amber], ["VEC", "unstable", C.amber], ["BLUR", "mod", C.amber], ["TRACK", "none", C.textDim]],
+        notes: "Subject moving or scanner unsteady. Stabilize and retry.",
+        risk: "LOW"
+      }
+    ],
+    // No spectrogram waveform for camera mode — the viewfinder
+    // takes that slot. Kept as a no-op so the registry stays
+    // structurally uniform.
+    generatePoints: () => []
   }
 ];
 const getMode = (id) => SCAN_MODES.find((m) => m.id === id) || SCAN_MODES[0];
@@ -731,6 +824,11 @@ const SOUNDS = {
   },
   incoming: { kind: "chord", notes: [880, 1320], dur: 0.18, vol: 0.08 },
   transmit: { kind: "sweep", from: 1200, to: 800, dur: 0.28, vol: 0.05, wave: "sine" },
+  // resolution chimes — one per risk tier, played at scan completion
+  resolve_clean: { kind: "chord", notes: [1200, 1800, 2400], dur: 0.18, vol: 0.06 },
+  resolve_caution: { kind: "chord", notes: [880, 1100], dur: 0.22, vol: 0.07, wave: "triangle" },
+  resolve_warn: { kind: "chord", notes: [440, 550], dur: 0.32, vol: 0.08, wave: "triangle" },
+  resolve_alarm: { kind: "chord", notes: [180, 220, 280], dur: 0.55, vol: 0.1, wave: "square" },
   glyph: { kind: "blip", freq: 1100, dur: 0.12, vol: 0.07, wave: "sine" },
   heartbeat: { kind: "blip", freq: 55, dur: 0.12, vol: 0.13, wave: "sine" },
   boot: { kind: "chord", notes: [660, 990, 1320], dur: 0.3, vol: 0.06 }
@@ -855,6 +953,166 @@ const audio = {
     if (handle?.stop) handle.stop();
   }
 };
+const BATTERY_COSTS = {
+  scan: 2,
+  // each press of the SCAN button
+  scan_opt: 2.5,
+  // OPT scans cost a touch more (camera + frame analysis)
+  transmit: 0.6,
+  // each outbound comm
+  diag_signal: 1.2,
+  // diagnostic drills
+  diag_decrypt: 1,
+  diag_subspace: 1.4,
+  med_assess: 0.4,
+  // logging a med assessment
+  ambient_min: 0.05
+  // passive drain per minute (tab open)
+};
+const chargeFor = (action) => BATTERY_COSTS[action] ?? 0;
+const BATTERY_LOW = 20;
+const BATTERY_CRITICAL = 5;
+const MISSIONS = [
+  {
+    id: "geo-survey",
+    title: "GEOLOGICAL SURVEY",
+    brief: "Acquire 3 geological readings from sector 042.",
+    target_kind: "scan",
+    target_mode: "GEO",
+    target_count: 3,
+    reward_msg: { from: "SCIENCE", txt: "Geological data integrated. Survey closed \u2014 well done." }
+  },
+  {
+    id: "bio-sweep",
+    title: "BIOSIGNATURE SWEEP",
+    brief: "Identify 2 distinct lifeforms in the area.",
+    target_kind: "scan",
+    target_mode: "BIO",
+    target_count: 2,
+    reward_msg: { from: "SCIENCE", txt: "Bio sweep complete. Two distinct biosigns logged." }
+  },
+  {
+    id: "atmo-baseline",
+    title: "ATMOSPHERIC BASELINE",
+    brief: "Establish atmospheric composition with 1 ATMO scan.",
+    target_kind: "scan",
+    target_mode: "ATMO",
+    target_count: 1,
+    reward_msg: { from: "BRIDGE", txt: "Atmospheric baseline received. Approach clearance approved." }
+  },
+  {
+    id: "self-check",
+    title: "OPERATOR HEALTH CHECK",
+    brief: "Log a medical assessment.",
+    target_kind: "med",
+    target_count: 1,
+    reward_msg: { from: "MED BAY", txt: "Vitals logged. You're cleared to proceed." }
+  },
+  {
+    id: "calibration",
+    title: "INSTRUMENT CALIBRATION",
+    brief: "Pass any diagnostic drill.",
+    target_kind: "diag",
+    target_count: 1,
+    matchEntry: (e) => e.kind === "diag" && (e.data?.grade === "PASS" || (e.data?.best ?? 0) >= 3),
+    reward_msg: { from: "ENGINEERING", txt: "Tricorder calibrated. Drift within spec." }
+  }
+];
+const findMission = (id) => MISSIONS.find((m) => m.id === id);
+const ENV_CONDITIONS = [
+  { id: "clear", label: "CLEAR", color: C.green, interference: 0 },
+  { id: "particulate", label: "PARTICULATE", color: C.cyan, interference: 6 },
+  { id: "ionized", label: "IONIZED", color: C.cyan, interference: 9 },
+  { id: "interference", label: "EM INTERFERENCE", color: C.amber, interference: 14 },
+  { id: "storm", label: "ION STORM", color: C.amber, interference: 22 }
+];
+const currentEnvironment = (sessionMs) => {
+  const slot = Math.floor(sessionMs / (3 * 60 * 1e3));
+  const idx = Math.abs(slot * 2654435761 % ENV_CONDITIONS.length);
+  return ENV_CONDITIONS[idx];
+};
+const fmtElapsed = (ms) => {
+  const s = Math.max(0, Math.floor(ms / 1e3));
+  const m = Math.floor(s / 60).toString().padStart(2, "0");
+  const r = (s % 60).toString().padStart(2, "0");
+  return `${m}:${r}`;
+};
+const buildFieldReport = ({ profile, history, missionProgress, completedMissions, sessionMs, env, coords, battery }) => {
+  const now = /* @__PURE__ */ new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const timeStr = now.toTimeString().slice(0, 5);
+  const stardate = `${(now.getFullYear() - 1953).toFixed(0)}.${Math.floor(now.getTime() / 864e5 % 365).toString().padStart(3, "0")}`;
+  const sessionStr = fmtElapsed(sessionMs);
+  const line = "\u2500".repeat(56);
+  const dline = "\u2550".repeat(56);
+  const scans = history.filter((e) => e.kind === "scan");
+  const meds = history.filter((e) => e.kind === "med");
+  const diags = history.filter((e) => e.kind === "diag");
+  const out = [];
+  out.push(dline);
+  out.push("  MK-VII FIELD SCANNER \xB7 OFFICIAL FIELD REPORT");
+  out.push(dline);
+  out.push("");
+  out.push(`  SHIP       ${(profile.ship || "\u2014").toUpperCase()}`);
+  out.push(`  OPERATOR   ${profile.last.toUpperCase()}, ${profile.first.charAt(0).toUpperCase()}.`);
+  out.push(`  STARDATE   ${stardate}`);
+  out.push(`  FILED      ${dateStr} ${timeStr}`);
+  out.push(`  SESSION    ${sessionStr} elapsed`);
+  if (coords) out.push(`  COORDS     ${coords.lat.toFixed(2)}\xB0${coords.lat >= 0 ? "N" : "S"} ${Math.abs(coords.lon).toFixed(2)}\xB0${coords.lon >= 0 ? "E" : "W"}`);
+  out.push(`  ENV        ${env.label} (interference +${env.interference}%)`);
+  out.push(`  POWER      ${Math.round(battery)}%`);
+  out.push("");
+  out.push(line);
+  out.push("  OBJECTIVES");
+  out.push(line);
+  for (const m of MISSIONS) {
+    const done = completedMissions.includes(m.id);
+    const cur = Math.min(missionProgress[m.id] ?? 0, m.target_count);
+    const mark = done ? "[\u2713]" : "[ ]";
+    out.push(`  ${mark} ${m.title.padEnd(28)} ${cur}/${m.target_count}`);
+    out.push(`        ${m.brief}`);
+  }
+  out.push("");
+  if (scans.length) {
+    out.push(line);
+    out.push(`  SCANS LOGGED (${scans.length})`);
+    out.push(line);
+    for (const e of scans.slice().reverse()) {
+      out.push(`  [${e.timeStr}] ${(e.data?.mode || "\u2014").padEnd(4)}  ${e.title}`);
+      out.push(`           ${e.subtitle}`);
+    }
+    out.push("");
+  }
+  if (meds.length) {
+    out.push(line);
+    out.push(`  MEDICAL ASSESSMENTS (${meds.length})`);
+    out.push(line);
+    for (const e of meds.slice().reverse()) {
+      out.push(`  [${e.timeStr}] ${e.title}`);
+      out.push(`           ${e.subtitle}`);
+    }
+    out.push("");
+  }
+  if (diags.length) {
+    out.push(line);
+    out.push(`  DIAGNOSTICS RUN (${diags.length})`);
+    out.push(line);
+    for (const e of diags.slice().reverse()) {
+      out.push(`  [${e.timeStr}] ${e.title.padEnd(20)} ${e.subtitle}`);
+    }
+    out.push("");
+  }
+  if (!history.length) {
+    out.push(line);
+    out.push("  NO ACTIVITY LOGGED THIS SESSION");
+    out.push(line);
+    out.push("");
+  }
+  out.push(dline);
+  out.push(`  END OF REPORT \xB7 FILED BY ${profile.last.toUpperCase()}, ${profile.first.charAt(0).toUpperCase()}.`);
+  out.push(dline);
+  return out.join("\n");
+};
 function Spectrogram({ modeId, scanning, progress }) {
   const [t, setT] = useState(0);
   useEffect(() => {
@@ -893,6 +1151,217 @@ function Spectrogram({ modeId, scanning, progress }) {
     }
   )));
 }
+const fingerprintFrame = (videoEl) => {
+  if (!videoEl || !videoEl.videoWidth) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext("2d");
+  try {
+    ctx.drawImage(videoEl, 0, 0, 32, 32);
+    const data = ctx.getImageData(0, 0, 32, 32).data;
+    let r = 0, g = 0, b = 0, sumLum = 0, sumLum2 = 0;
+    const n = data.length / 4;
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      sumLum += lum;
+      sumLum2 += lum * lum;
+    }
+    const meanR = r / n, meanG = g / n, meanB = b / n;
+    const meanL = sumLum / n;
+    const varL = sumLum2 / n - meanL * meanL;
+    const hash = Math.round(meanR) * 31 + Math.round(meanG) * 17 + Math.round(meanB) * 13 + Math.round(varL) * 7 | 0;
+    return { meanR, meanG, meanB, meanL, varL, hash };
+  } catch (_) {
+    return null;
+  }
+};
+const pickOpticalSample = (samples, fp) => {
+  if (!fp) return samples[0];
+  const find = (subject) => samples.find((s) => s.subject === subject);
+  const flip = (a, b) => fp.hash & 1 ? a : b;
+  if (fp.meanL < 28) return find("Low-light field");
+  if (fp.meanL > 220) return find("Saturated frame");
+  if (fp.varL > 5500) return flip(find("Anomalous geometry"), find("Dynamic motion"));
+  const { meanR, meanG, meanB } = fp;
+  const dominant = Math.max(meanR, meanG, meanB);
+  if (dominant - Math.min(meanR, meanG, meanB) < 18) {
+    return flip(find("Manufactured object"), find("Organic surface"));
+  }
+  if (meanG === dominant) return flip(find("Organic surface"), find("Bioluminescent flora"));
+  if (meanR === dominant) return flip(find("Mineral aggregate"), find("Atmospheric haze"));
+  return find("Reflective surface");
+};
+function OpticalViewfinder({ active, scanning, progress, onReady }, ref) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [state, setState] = useState("idle");
+  React.useImperativeHandle(ref, () => ({
+    fingerprint: () => fingerprintFrame(videoRef.current)
+  }));
+  const stop = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => {
+        try {
+          t.stop();
+        } catch (_) {
+        }
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  };
+  const start = async () => {
+    if (streamRef.current) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setState("unavailable");
+      return;
+    }
+    setState("requesting");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      streamRef.current = stream;
+      const v = videoRef.current;
+      if (v) {
+        v.srcObject = stream;
+        v.setAttribute("playsinline", "true");
+        v.muted = true;
+        await v.play().catch(() => {
+        });
+      }
+      setState("live");
+      onReady?.();
+    } catch (err) {
+      setState(err?.name === "NotAllowedError" ? "denied" : "unavailable");
+    }
+  };
+  useEffect(() => {
+    if (active) start();
+    else stop();
+    const onVis = () => {
+      if (document.hidden) stop();
+      else if (active) start();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      stop();
+    };
+  }, [active]);
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    position: "relative",
+    width: "100%",
+    aspectRatio: "16 / 9",
+    background: "#000",
+    borderRadius: 4,
+    overflow: "hidden",
+    border: `1px solid ${state === "live" ? C.cyan : C.line}`
+  } }, /* @__PURE__ */ React.createElement("video", { ref: videoRef, playsInline: true, muted: true, style: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    // very subtle filter to nudge raw camera toward our palette
+    filter: "saturate(0.9) contrast(1.05) brightness(0.95)",
+    display: state === "live" ? "block" : "none"
+  } }), state !== "live" && /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    padding: 14
+  } }, /* @__PURE__ */ React.createElement("div", null, state === "idle" && /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, letterSpacing: "0.3em" } }, "\u25EF OPTICAL SENSOR \xB7 STANDBY"), state === "requesting" && /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.amber, letterSpacing: "0.3em", animation: "blink 0.8s infinite" } }, "\u25C9 INITIALIZING SENSOR\u2026"), state === "denied" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.red, letterSpacing: "0.3em" } }, "\u25EF SENSOR ACCESS DENIED"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 8, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" } }, "ENABLE CAMERA IN BROWSER SETTINGS"), /* @__PURE__ */ React.createElement("button", { onClick: start, style: {
+    ...mono,
+    marginTop: 12,
+    padding: "6px 14px",
+    fontSize: 9,
+    letterSpacing: "0.3em",
+    border: `1px solid ${C.amber}`,
+    background: `${C.amber}1a`,
+    color: C.amber,
+    borderRadius: 3,
+    cursor: "pointer"
+  } }, "RETRY")), state === "unavailable" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.amber, letterSpacing: "0.3em" } }, "\u25EF NO OPTICAL SENSOR DETECTED"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 8, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" } }, "HARDWARE NOT AVAILABLE ON THIS DEVICE")))), state === "live" && /* @__PURE__ */ React.createElement(React.Fragment, null, [
+    { top: 6, left: 6, b: ["top", "left"] },
+    { top: 6, right: 6, b: ["top", "right"] },
+    { bottom: 6, left: 6, b: ["bottom", "left"] },
+    { bottom: 6, right: 6, b: ["bottom", "right"] }
+  ].map((p, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+    position: "absolute",
+    width: 16,
+    height: 16,
+    top: p.top,
+    left: p.left,
+    right: p.right,
+    bottom: p.bottom,
+    borderTop: p.b.includes("top") ? `1.5px solid ${C.cyan}` : "none",
+    borderBottom: p.b.includes("bottom") ? `1.5px solid ${C.cyan}` : "none",
+    borderLeft: p.b.includes("left") ? `1.5px solid ${C.cyan}` : "none",
+    borderRight: p.b.includes("right") ? `1.5px solid ${C.cyan}` : "none",
+    boxShadow: `0 0 6px ${C.cyan}66`
+  } })), /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 28,
+    height: 28,
+    border: `1px solid ${C.cyan}88`,
+    borderRadius: "50%",
+    boxShadow: `0 0 8px ${C.cyan}55, inset 0 0 4px ${C.cyan}55`
+  } }), /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 1,
+    height: 40,
+    background: `${C.cyan}66`
+  } }), /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    height: 1,
+    width: 40,
+    background: `${C.cyan}66`
+  } }), scanning && /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: `${progress}%`,
+    height: 2,
+    background: C.amber,
+    boxShadow: `0 0 10px ${C.amber}`,
+    transition: "top 0.05s linear"
+  } }), scanning && /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: `${progress}%`,
+    background: `${C.amber}10`
+  } }), /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    top: 8,
+    right: 24,
+    ...mono,
+    fontSize: 8,
+    letterSpacing: "0.3em",
+    color: C.red,
+    display: "flex",
+    alignItems: "center",
+    gap: 4
+  } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " OPT")));
+}
+OpticalViewfinder = React.forwardRef(OpticalViewfinder);
 const VitalCell = ({ k, v, color }) => /* @__PURE__ */ React.createElement("div", { style: {
   border: `1px solid ${C.line}`,
   borderRadius: 4,
@@ -1267,9 +1736,216 @@ function DecryptGame({ onExit, onComplete }) {
     letterSpacing: "0.3em"
   } }, "\u25C0 ABORT"));
 }
+function SubspaceTune({ onExit, onComplete }) {
+  const TOTAL = 5;
+  const [round, setRound] = useState(1);
+  const [dial, setDial] = useState(0.5);
+  const [target, setTarget] = useState(() => 0.15 + Math.random() * 0.7);
+  const [score, setScore] = useState(0);
+  const [result, setResult] = useState(null);
+  const [done, setDone] = useState(false);
+  const reportedRef = useRef(false);
+  const dragRef = useRef(null);
+  const window_ = Math.max(0.04, 0.14 - round * 0.018);
+  const dist = Math.abs(dial - target);
+  const proximity = Math.max(0, 1 - dist / 0.5);
+  const grade = score >= 320 ? "PASS" : score >= 200 ? "MARGINAL" : "RECAL REQUIRED";
+  const gradeColor = score >= 320 ? C.green : score >= 200 ? C.amber : C.red;
+  useEffect(() => {
+    if (done && !reportedRef.current) {
+      reportedRef.current = true;
+      onComplete?.({
+        kind: "diag",
+        title: "Subspace Tune",
+        subtitle: `${grade} \xB7 ${score} pts`,
+        color: gradeColor,
+        data: { game: "subspace", score, grade, rounds: TOTAL }
+      });
+    }
+  }, [done, grade, gradeColor, score, onComplete]);
+  const onPointerMove = (e) => {
+    if (dragRef.current == null) return;
+    const rect = dragRef.current.getBoundingClientRect();
+    const x = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
+    const v = Math.max(0, Math.min(1, x / rect.width));
+    setDial(v);
+  };
+  const onPointerDown = (e) => {
+    dragRef.current = e.currentTarget;
+    onPointerMove(e);
+    audio.play("tick");
+  };
+  const onPointerUp = () => {
+    dragRef.current = null;
+  };
+  useEffect(() => {
+    const up = () => onPointerUp();
+    const move = (e) => onPointerMove(e);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointermove", move);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointermove", move);
+    };
+  }, []);
+  const lock = () => {
+    if (done || result) return;
+    let r, p;
+    if (dist < window_ / 4) {
+      r = "PEAK LOCKED";
+      p = 100;
+    } else if (dist < window_ / 2) {
+      r = "HARMONIC";
+      p = 60;
+    } else if (dist < window_) {
+      r = "PARTIAL";
+      p = 25;
+    } else {
+      r = "OFF-FREQUENCY";
+      p = 0;
+    }
+    audio.play(p >= 100 ? "lock" : p >= 60 ? "confirm" : p >= 25 ? "graze" : "error");
+    setResult({ r, p });
+    setScore((s) => s + p);
+    setTimeout(() => {
+      setResult(null);
+      if (round >= TOTAL) setDone(true);
+      else {
+        setRound((x) => x + 1);
+        setTarget(0.15 + Math.random() * 0.7);
+        setDial(0.5);
+      }
+    }, 1100);
+  };
+  if (done) {
+    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px 10px" } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyanDim }, "DIAGNOSTIC COMPLETE"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 32, color: gradeColor, marginTop: 14, textShadow: `0 0 14px ${gradeColor}88` } }, score, " pts"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 12, color: gradeColor, letterSpacing: "0.35em", marginTop: 8 } }, grade), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
+      ...mono,
+      marginTop: 28,
+      padding: "12px 22px",
+      border: `1px solid ${C.cyan}`,
+      background: `${C.cyan}14`,
+      color: C.cyan,
+      borderRadius: 4,
+      cursor: "pointer",
+      letterSpacing: "0.35em",
+      fontSize: 11
+    } }, "\u25C0 EXIT"));
+  }
+  const amplitude = (() => {
+    if (dist > window_) return 0.1 + Math.random() * 0.15;
+    return 1 - dist / window_;
+  })();
+  const meterColor = dist < window_ / 4 ? C.green : dist < window_ / 2 ? C.cyan : dist < window_ ? C.amber : C.redDim;
+  const rc = result ? result.p >= 100 ? C.green : result.p >= 60 ? C.cyan : result.p >= 25 ? C.amber : C.red : C.cyan;
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 9 }, "ROUND ", round, " / ", TOTAL), /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyan }, score, " PTS")), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "TUNE THE DIAL TO PEAK SIGNAL"), /* @__PURE__ */ React.createElement("div", { style: {
+    position: "relative",
+    height: 60,
+    background: "rgba(0,0,0,0.55)",
+    border: `1px solid ${C.line}`,
+    borderRadius: 4,
+    marginTop: 10,
+    overflow: "hidden"
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: `${amplitude * 100}%`,
+    background: `linear-gradient(to top, ${meterColor}88, ${meterColor}22)`,
+    transition: "height 0.12s, background 0.2s"
+  } }), /* @__PURE__ */ React.createElement("div", { style: {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    ...mono,
+    fontSize: 10,
+    color: meterColor,
+    letterSpacing: "0.3em",
+    textShadow: `0 0 6px ${meterColor}88`
+  } }, "AMP ", Math.round(amplitude * 100))), /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      onPointerDown,
+      style: {
+        position: "relative",
+        height: 56,
+        marginTop: 10,
+        background: "rgba(0,0,0,0.4)",
+        border: `1px solid ${C.line}`,
+        borderRadius: 4,
+        cursor: "ew-resize",
+        touchAction: "none"
+      }
+    },
+    Array.from({ length: 21 }, (_, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
+      position: "absolute",
+      top: 4,
+      left: `${i / 20 * 100}%`,
+      width: 1,
+      height: i % 5 === 0 ? 12 : 6,
+      background: C.line,
+      transform: "translateX(-0.5px)"
+    } })),
+    /* @__PURE__ */ React.createElement("div", { style: {
+      position: "absolute",
+      top: "50%",
+      left: `${dial * 100}%`,
+      width: 4,
+      height: 40,
+      background: C.cyan,
+      boxShadow: `0 0 10px ${C.cyan}`,
+      transform: "translate(-2px, -50%)",
+      borderRadius: 1,
+      pointerEvents: "none"
+    } }),
+    /* @__PURE__ */ React.createElement("div", { style: {
+      position: "absolute",
+      bottom: 3,
+      left: 6,
+      ...mono,
+      fontSize: 8,
+      color: C.textDim,
+      letterSpacing: "0.25em"
+    } }, (420 + dial * 380).toFixed(1), " kHz")
+  ), /* @__PURE__ */ React.createElement("div", { style: { height: 38, textAlign: "center", marginTop: 10 } }, result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: {
+    ...mono,
+    fontSize: 14,
+    color: rc,
+    letterSpacing: "0.35em",
+    textShadow: `0 0 8px ${rc}88`
+  } }, result.r), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, marginTop: 3 } }, "+", result.p, " pts"))), /* @__PURE__ */ React.createElement("button", { onClick: lock, disabled: !!result, style: {
+    ...mono,
+    width: "100%",
+    padding: "16px",
+    fontSize: 15,
+    letterSpacing: "0.5em",
+    border: `2px solid ${C.cyan}`,
+    background: `${C.cyan}14`,
+    color: C.cyan,
+    borderRadius: 6,
+    cursor: result ? "default" : "pointer",
+    textShadow: `0 0 10px ${C.cyan}`,
+    animation: result ? "none" : "idle-pulse 2.4s ease-in-out infinite"
+  } }, "\u25C9 LOCK FREQUENCY"), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
+    ...mono,
+    width: "100%",
+    marginTop: 8,
+    padding: "8px",
+    border: `1px solid ${C.line}`,
+    background: "transparent",
+    color: C.textDim,
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 10,
+    letterSpacing: "0.3em"
+  } }, "\u25C0 ABORT"));
+}
 const DIAGS = [
   { id: "signal", name: "SIGNAL LOCK", desc: "Timing drill \xB7 sensor calibration", icon: "\u25C9", Component: SignalLockGame },
-  { id: "decrypt", name: "DECRYPT CIPHER", desc: "Pattern recognition \xB7 glyph sequence", icon: "\u25A6", Component: DecryptGame }
+  { id: "decrypt", name: "DECRYPT CIPHER", desc: "Pattern recognition \xB7 glyph sequence", icon: "\u25A6", Component: DecryptGame },
+  { id: "subspace", name: "SUBSPACE TUNE", desc: "Harmonic search \xB7 frequency lock", icon: "\u224B", Component: SubspaceTune }
 ];
 const getDiag = (id) => DIAGS.find((d) => d.id === id);
 const REACTIONS = [
@@ -1496,11 +2172,48 @@ function CommsView({ messages, onTransmit }) {
     whiteSpace: "nowrap"
   } }, "SEND \u25B6"))));
 }
-function HistoryView({ history, onClear, onResetProfile }) {
+function MissionView({ progress, completed }) {
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "62vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "OBJECTIVES"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, completed.length, " / ", MISSIONS.length, " COMPLETE")), MISSIONS.map((m) => {
+    const done = completed.includes(m.id);
+    const cur = Math.min(progress[m.id] ?? 0, m.target_count);
+    const pct = cur / m.target_count * 100;
+    const accent = done ? C.green : C.cyan;
+    return /* @__PURE__ */ React.createElement("div", { key: m.id, style: {
+      border: `1px solid ${C.line}`,
+      borderRadius: 6,
+      padding: "10px 12px",
+      marginBottom: 8,
+      background: done ? "rgba(127,200,138,0.06)" : "rgba(0,0,0,0.4)",
+      opacity: done ? 0.7 : 1
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: {
+      ...mono,
+      fontSize: 11,
+      color: accent,
+      letterSpacing: "0.25em",
+      textShadow: `0 0 4px ${accent}66`
+    } }, done ? "\u2713 " : "\u25B8 ", m.title), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.textDim } }, cur, " / ", m.target_count)), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, lineHeight: 1.4, marginBottom: 8 } }, m.brief), /* @__PURE__ */ React.createElement("div", { style: { height: 3, background: "rgba(0,0,0,0.4)", borderRadius: 2, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+      height: "100%",
+      width: `${pct}%`,
+      background: accent,
+      transition: "width 0.4s ease-out",
+      boxShadow: `0 0 4px ${accent}88`
+    } })));
+  }), completed.length === MISSIONS.length && /* @__PURE__ */ React.createElement("div", { style: {
+    marginTop: 14,
+    padding: "10px",
+    textAlign: "center",
+    border: `1px dashed ${C.green}`,
+    borderRadius: 4
+  } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.green }, "\u25C9 ALL OBJECTIVES MET"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 9, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" } }, "STANDING BY FOR NEW ASSIGNMENT")));
+}
+function HistoryView({ history, onClear, onResetProfile, onExport }) {
   const [confirm, setConfirm] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [reportText, setReportText] = useState(null);
+  const [copyState, setCopyState] = useState("idle");
   const clearTimerRef = useRef(null);
   const resetTimerRef = useRef(null);
+  const reportTaRef = useRef(null);
   useEffect(() => () => {
     clearTimeout(clearTimerRef.current);
     clearTimeout(resetTimerRef.current);
@@ -1513,6 +2226,25 @@ function HistoryView({ history, onClear, onResetProfile }) {
     } else {
       setConfirm(true);
       clearTimerRef.current = setTimeout(() => setConfirm(false), 2500);
+    }
+  };
+  const handleExport = async () => {
+    if (!onExport) return;
+    const text = onExport();
+    setReportText(text);
+    audio.play("confirm");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyState("copied");
+      setTimeout(() => setCopyState("idle"), 2500);
+    } catch (_) {
+      setCopyState("manual");
+      setTimeout(() => {
+        if (reportTaRef.current) {
+          reportTaRef.current.focus();
+          reportTaRef.current.select();
+        }
+      }, 50);
     }
   };
   const handleReset = () => {
@@ -1547,7 +2279,18 @@ function HistoryView({ history, onClear, onResetProfile }) {
   if (history.length === 0) {
     return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "60px 10px 20px" } }, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 11, color: C.textDim, letterSpacing: "0.3em" } }, "\u25EF NO ACTIVITY LOGGED"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 9, color: C.textFaint, marginTop: 8, letterSpacing: "0.2em" } }, "SCANS AND DIAGNOSTICS WILL APPEAR HERE")), resetPanel);
   }
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "48vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "ACTIVITY LOG \xB7 ", history.length), /* @__PURE__ */ React.createElement("button", { onClick: handleClear, style: {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "48vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "ACTIVITY LOG \xB7 ", history.length), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: handleExport, style: {
+    ...mono,
+    fontSize: 8,
+    color: C.cyan,
+    letterSpacing: "0.3em",
+    background: "transparent",
+    border: `1px solid ${C.cyan}66`,
+    padding: "3px 8px",
+    borderRadius: 3,
+    cursor: "pointer",
+    transition: "all 0.15s"
+  } }, copyState === "copied" ? "COPIED \u2713" : "EXPORT"), /* @__PURE__ */ React.createElement("button", { onClick: handleClear, style: {
     ...mono,
     fontSize: 8,
     color: confirm ? C.red : C.redDim,
@@ -1558,7 +2301,7 @@ function HistoryView({ history, onClear, onResetProfile }) {
     borderRadius: 3,
     cursor: "pointer",
     transition: "all 0.15s"
-  } }, confirm ? "TAP AGAIN" : "CLEAR")), history.map((e) => /* @__PURE__ */ React.createElement("div", { key: e.id, style: {
+  } }, confirm ? "TAP AGAIN" : "CLEAR"))), history.map((e) => /* @__PURE__ */ React.createElement("div", { key: e.id, style: {
     borderLeft: `2px solid ${e.color}`,
     background: "rgba(0,0,0,0.35)",
     padding: "9px 12px",
@@ -1571,7 +2314,65 @@ function HistoryView({ history, onClear, onResetProfile }) {
     marginTop: 3,
     letterSpacing: "0.18em",
     textShadow: `0 0 4px ${e.color}44`
-  } }, e.subtitle)))), resetPanel);
+  } }, e.subtitle)))), reportText && /* @__PURE__ */ React.createElement("div", { style: {
+    marginTop: 12,
+    padding: 10,
+    border: `1px solid ${C.cyan}`,
+    borderRadius: 6,
+    background: "rgba(0,0,0,0.55)",
+    boxShadow: `0 0 12px ${C.cyan}22 inset`
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyan }, "FIELD REPORT"), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 8, color: copyState === "copied" ? C.green : C.amber, letterSpacing: "0.25em" } }, copyState === "copied" ? "\u25C9 COPIED TO CLIPBOARD" : "\u25EF SELECT & COPY MANUALLY")), /* @__PURE__ */ React.createElement(
+    "textarea",
+    {
+      ref: reportTaRef,
+      value: reportText,
+      readOnly: true,
+      onFocus: (e) => e.target.select(),
+      style: {
+        ...mono,
+        width: "100%",
+        minHeight: 180,
+        maxHeight: 280,
+        boxSizing: "border-box",
+        padding: 10,
+        background: "rgba(0,0,0,0.7)",
+        color: C.text,
+        border: `1px solid ${C.line}`,
+        borderRadius: 4,
+        fontSize: 9.5,
+        lineHeight: 1.5,
+        letterSpacing: 0,
+        outline: "none",
+        resize: "vertical",
+        whiteSpace: "pre"
+      }
+    }
+  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: handleExport, style: {
+    ...mono,
+    flex: 1,
+    fontSize: 8,
+    padding: "5px",
+    border: `1px solid ${C.cyan}66`,
+    background: "transparent",
+    color: C.cyan,
+    borderRadius: 3,
+    cursor: "pointer",
+    letterSpacing: "0.3em"
+  } }, "RE-COPY"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    setReportText(null);
+    setCopyState("idle");
+  }, style: {
+    ...mono,
+    flex: 1,
+    fontSize: 8,
+    padding: "5px",
+    border: `1px solid ${C.line}`,
+    background: "transparent",
+    color: C.textDim,
+    borderRadius: 3,
+    cursor: "pointer",
+    letterSpacing: "0.3em"
+  } }, "DISMISS"))), resetPanel);
 }
 const PROFILE_DEFAULTS = { first: "", last: "", ship: "" };
 const honorificName = (p) => {
@@ -1873,6 +2674,7 @@ function Tricorder() {
   }, [view]);
   const [mode, setMode] = useState("BIO");
   const [scanning, setScanning] = useState(false);
+  const opticalRef = useRef(null);
   const [progress, setProgress] = useState(0);
   const [sample, setSample] = useState(null);
   const [scanLog, setScanLog] = useState([]);
@@ -1882,6 +2684,26 @@ function Tricorder() {
     const id = setInterval(() => setClock(/* @__PURE__ */ new Date()), 1e3);
     return () => clearInterval(id);
   }, []);
+  const sessionStartRef = useRef(Date.now());
+  const sessionMs = clock.getTime() - sessionStartRef.current;
+  const env = currentEnvironment(sessionMs);
+  const [battery, setBattery] = useState(87);
+  const batteryHydratedRef = useRef(false);
+  const [docking, setDocking] = useState(false);
+  const dockTimerRef = useRef(null);
+  const [missionProgress, setMissionProgress] = useState({});
+  const [completedMissions, setCompletedMissions] = useState([]);
+  const missionHydratedRef = useRef(false);
+  const [coords, setCoords] = useState(null);
+  const geoTriedRef = useRef(false);
+  const drainBattery = (amount) => {
+    setBattery((b) => Math.max(0, Math.min(100, b - amount)));
+  };
+  useEffect(() => {
+    if (docking) return;
+    const id = setInterval(() => drainBattery(BATTERY_COSTS.ambient_min), 60 * 1e3);
+    return () => clearInterval(id);
+  }, [docking]);
   const [messages, setMessages] = useState([]);
   const [unread, setUnread] = useState(0);
   const [toast, setToast] = useState(null);
@@ -1933,6 +2755,109 @@ function Tricorder() {
       }
     })();
   }, [muted]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await window.storage?.get?.("battery");
+        if (res?.value) {
+          const v = parseFloat(res.value);
+          if (!isNaN(v)) setBattery(v);
+        }
+      } catch (_) {
+      }
+      batteryHydratedRef.current = true;
+    })();
+  }, []);
+  useEffect(() => {
+    if (!batteryHydratedRef.current) return;
+    (async () => {
+      try {
+        await window.storage?.set?.("battery", String(battery));
+      } catch (_) {
+      }
+    })();
+  }, [battery]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const a = await window.storage?.get?.("missions");
+        const b = await window.storage?.get?.("missions_done");
+        if (a?.value) setMissionProgress(JSON.parse(a.value));
+        if (b?.value) setCompletedMissions(JSON.parse(b.value));
+      } catch (_) {
+      }
+      missionHydratedRef.current = true;
+    })();
+  }, []);
+  useEffect(() => {
+    if (!missionHydratedRef.current) return;
+    (async () => {
+      try {
+        await window.storage?.set?.("missions", JSON.stringify(missionProgress));
+        await window.storage?.set?.("missions_done", JSON.stringify(completedMissions));
+      } catch (_) {
+      }
+    })();
+  }, [missionProgress, completedMissions]);
+  useEffect(() => {
+    if (!profile || geoTriedRef.current) return;
+    geoTriedRef.current = true;
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => {
+      },
+      { enableHighAccuracy: false, timeout: 8e3, maximumAge: 6e5 }
+    );
+  }, [profile]);
+  const batteryTierRef = useRef("ok");
+  useEffect(() => {
+    let tier = "ok";
+    if (battery < BATTERY_CRITICAL) tier = "critical";
+    else if (battery < BATTERY_LOW) tier = "low";
+    if (tier !== batteryTierRef.current) {
+      const prev = batteryTierRef.current;
+      batteryTierRef.current = tier;
+      if (!docking) {
+        if (prev === "ok" && tier === "low") {
+          setTimeout(() => pushMsg({
+            from: "ENGINEERING",
+            txt: "Heads up \u2014 tricorder battery under 20%. Dock when you can."
+          }), 1200);
+        } else if (tier === "critical") {
+          setTimeout(() => pushMsg({
+            from: "ENGINEERING",
+            txt: "Battery critical. Non-essential systems disabled."
+          }), 1200);
+        }
+      }
+    }
+  }, [battery]);
+  const startDocking = () => {
+    if (docking) return;
+    dockTimerRef.current = setTimeout(() => {
+      setDocking(true);
+      audio.play("boot");
+    }, 750);
+  };
+  const cancelDocking = () => {
+    clearTimeout(dockTimerRef.current);
+  };
+  useEffect(() => {
+    if (!docking) return;
+    const id = setInterval(() => {
+      setBattery((b) => {
+        const next = Math.min(100, b + 1.5);
+        if (next >= 100) {
+          clearInterval(id);
+          setDocking(false);
+          audio.play("confirm");
+        }
+        return next;
+      });
+    }, 100);
+    return () => clearInterval(id);
+  }, [docking]);
   const pushMsg = (msg) => {
     const dir = msg.dir || "in";
     const entry = { ...msg, dir, time: nowTime(), id: Date.now() + Math.random(), fresh: true };
@@ -1951,6 +2876,7 @@ function Tricorder() {
   const transmit = (recipientId, txt) => {
     const member = getTeamMember(recipientId);
     if (!member) return;
+    drainBattery(chargeFor("transmit"));
     audio.play("transmit");
     const toLabel = recipientId === "ship" ? "SHIP" : member.name.toUpperCase();
     pushMsg({ dir: "out", to: toLabel, from: "SELF", txt });
@@ -1967,6 +2893,14 @@ function Tricorder() {
       ts: Date.now(),
       timeStr: nowTime()
     };
+    if (entry.kind === "diag") {
+      const game2 = entry.data?.game;
+      if (game2 === "signal") drainBattery(chargeFor("diag_signal"));
+      else if (game2 === "decrypt") drainBattery(chargeFor("diag_decrypt"));
+      else if (game2 === "subspace") drainBattery(chargeFor("diag_subspace"));
+    } else if (entry.kind === "med") {
+      drainBattery(chargeFor("med_assess"));
+    }
     const ctx = { history: historyRef.current };
     const api = { pushMsg };
     for (const reaction of REACTIONS) {
@@ -1987,6 +2921,25 @@ function Tricorder() {
         }
       }, delay);
     }
+    setMissionProgress((prev) => {
+      const next = { ...prev };
+      let anyComplete = null;
+      for (const m of MISSIONS) {
+        if (completedMissions.includes(m.id)) continue;
+        const matches = m.matchEntry ? m.matchEntry(enriched) : enriched.kind === m.target_kind && (!m.target_mode || enriched.data?.mode === m.target_mode);
+        if (!matches) continue;
+        const cur = (next[m.id] ?? 0) + 1;
+        next[m.id] = cur;
+        if (cur >= m.target_count) anyComplete = m;
+      }
+      if (anyComplete) {
+        const m = anyComplete;
+        setCompletedMissions((c) => c.includes(m.id) ? c : [...c, m.id]);
+        setTimeout(() => pushMsg(m.reward_msg), 1800);
+        setTimeout(() => audio.play("confirm"), 1800);
+      }
+      return next;
+    });
     setHistory((h) => [enriched, ...h].slice(0, 100));
   };
   const clearHistory = () => setHistory([]);
@@ -2024,12 +2977,27 @@ function Tricorder() {
   };
   const doScan = () => {
     if (scanning) return;
+    if (battery < BATTERY_CRITICAL) {
+      audio.play("error");
+      pushMsg({
+        from: "ENGINEERING",
+        txt: "Power critical \u2014 scanner is locked out. Dock to recharge."
+      });
+      return;
+    }
+    drainBattery(mode === "OPT" ? chargeFor("scan_opt") : chargeFor("scan"));
     setScanning(true);
     setProgress(0);
     setSample(null);
     setScanLog([]);
     const modeConfig = getMode(mode);
-    const chosen = pickRandom(modeConfig.samples);
+    let chosen;
+    if (modeConfig.usesCamera && opticalRef.current) {
+      const fp = opticalRef.current.fingerprint();
+      chosen = pickOpticalSample(modeConfig.samples, fp) || pickRandom(modeConfig.samples);
+    } else {
+      chosen = pickRandom(modeConfig.samples);
+    }
     const start = Date.now(), duration = 1800;
     const scanHandle = audio.play("scan");
     let raf;
@@ -2040,7 +3008,7 @@ function Tricorder() {
         raf = requestAnimationFrame(tick);
       } else {
         audio.stop(scanHandle);
-        audio.play("confirm");
+        audio.play(riskSoundId(chosen.risk));
         setSample(chosen);
         setScanning(false);
         setScanCount((c) => c + 1);
@@ -2064,8 +3032,8 @@ function Tricorder() {
     raf = requestAnimationFrame(tick);
   };
   const timeStr = nowTimeFull();
-  const statusLeft = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, mode)) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "MED")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "DIAG")) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "COMMS")) : /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "LOG"));
-  const statusCenter = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SCAN  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "#", String(scanCount).padStart(4, "0"))) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SUBJ  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "SELF")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "DRILL ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, game ? "ACTIVE" : "IDLE")) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MSGS  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(messages.length).padStart(3, "0"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, "ENTR  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(history.length).padStart(3, "0")));
+  const statusLeft = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, mode)) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "MED")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "DIAG")) : view === "mission" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "MSN")) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "COMMS")) : /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "LOG"));
+  const statusCenter = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SCAN  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "#", String(scanCount).padStart(4, "0"))) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SUBJ  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "SELF")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "DRILL ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, game ? "ACTIVE" : "IDLE")) : view === "mission" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "OBJ   ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, completedMissions.length, "/", MISSIONS.length)) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MSGS  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(messages.length).padStart(3, "0"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, "ENTR  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(history.length).padStart(3, "0")));
   const ActiveDiag = game ? getDiag(game)?.Component : null;
   const outerShell = (children) => /* @__PURE__ */ React.createElement("div", { style: {
     ...mono,
@@ -2131,7 +3099,32 @@ function Tricorder() {
       height: 3 + i * 2,
       background: i < 4 ? C.cyan : C.lineBright,
       boxShadow: i < 4 ? `0 0 3px ${C.cyan}` : "none"
-    } }))), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.green } }, /* @__PURE__ */ React.createElement(Dot, { color: C.green }), "87%"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Tab, { label: "SCAN", active: view === "scan", onClick: () => changeView("scan") }), /* @__PURE__ */ React.createElement(Tab, { label: "MED", active: view === "med", onClick: () => changeView("med") }), /* @__PURE__ */ React.createElement(Tab, { label: "DIAG", active: view === "diag", onClick: () => changeView("diag") }), /* @__PURE__ */ React.createElement(Tab, { label: "COMMS", active: view === "comms", onClick: () => changeView("comms"), badge: unread }), /* @__PURE__ */ React.createElement(Tab, { label: "LOG", active: view === "log", onClick: () => changeView("log") })), /* @__PURE__ */ React.createElement("div", { style: {
+    } }))), (() => {
+      const pct = Math.round(battery);
+      const col = docking ? C.cyan : battery < BATTERY_CRITICAL ? C.red : battery < BATTERY_LOW ? C.amber : C.green;
+      return /* @__PURE__ */ React.createElement(
+        "span",
+        {
+          onPointerDown: startDocking,
+          onPointerUp: cancelDocking,
+          onPointerLeave: cancelDocking,
+          onPointerCancel: cancelDocking,
+          title: "long-press to dock & recharge",
+          style: {
+            ...mono,
+            fontSize: 9,
+            color: col,
+            cursor: "pointer",
+            userSelect: "none",
+            textShadow: docking ? `0 0 6px ${col}88` : "none"
+          }
+        },
+        /* @__PURE__ */ React.createElement(Dot, { color: col, blink: docking }),
+        pct,
+        "%",
+        docking ? " \u27F3" : ""
+      );
+    })())), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" } }, /* @__PURE__ */ React.createElement(Tab, { label: "SCAN", active: view === "scan", onClick: () => changeView("scan") }), /* @__PURE__ */ React.createElement(Tab, { label: "MED", active: view === "med", onClick: () => changeView("med") }), /* @__PURE__ */ React.createElement(Tab, { label: "DIAG", active: view === "diag", onClick: () => changeView("diag") }), /* @__PURE__ */ React.createElement(Tab, { label: "MSN", active: view === "mission", onClick: () => changeView("mission") }), /* @__PURE__ */ React.createElement(Tab, { label: "COMMS", active: view === "comms", onClick: () => changeView("comms"), badge: unread }), /* @__PURE__ */ React.createElement(Tab, { label: "LOG", active: view === "log", onClick: () => changeView("log") })), /* @__PURE__ */ React.createElement("div", { style: {
       display: "flex",
       justifyContent: "space-between",
       fontSize: 9,
@@ -2139,7 +3132,27 @@ function Tricorder() {
       marginBottom: 12,
       letterSpacing: "0.22em",
       textTransform: "uppercase"
-    } }, /* @__PURE__ */ React.createElement("span", null, statusLeft), /* @__PURE__ */ React.createElement("span", null, statusCenter), /* @__PURE__ */ React.createElement("span", null, timeStr)), toast && /* @__PURE__ */ React.createElement(Toast, { msg: toast }), view === "scan" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: {
+    } }, /* @__PURE__ */ React.createElement("span", null, statusLeft), /* @__PURE__ */ React.createElement("span", null, statusCenter), /* @__PURE__ */ React.createElement("span", null, timeStr)), toast && /* @__PURE__ */ React.createElement(Toast, { msg: toast }), view === "scan" && /* @__PURE__ */ React.createElement(React.Fragment, null, env.id !== "clear" && /* @__PURE__ */ React.createElement("div", { style: {
+      border: `1px solid ${env.color}`,
+      borderRadius: 4,
+      padding: "6px 10px",
+      marginBottom: 8,
+      background: `${env.color}10`,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    } }, /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.3em" } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color, blink: env.interference >= 14 }), " ", env.label), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.2em" } }, "INTERFERENCE +", env.interference, "%")), (() => {
+      const active = MISSIONS.find((m) => !completedMissions.includes(m.id));
+      if (!active) return null;
+      const cur = Math.min(missionProgress[active.id] ?? 0, active.target_count);
+      return /* @__PURE__ */ React.createElement("div", { style: {
+        border: `1px dashed ${C.cyanDim}`,
+        borderRadius: 4,
+        padding: "6px 10px",
+        marginBottom: 10,
+        background: "rgba(0,0,0,0.3)"
+      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.cyanDim, letterSpacing: "0.3em" } }, "\u25B8 OBJECTIVE"), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.cyan } }, cur, " / ", active.target_count)), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.text, lineHeight: 1.3 } }, active.brief));
+    })(), /* @__PURE__ */ React.createElement("div", { style: {
       border: `1px solid ${sample ? C.cyan : C.line}`,
       borderRadius: 6,
       padding: "12px 14px",
@@ -2167,7 +3180,15 @@ function Tricorder() {
       padding: 8,
       background: "rgba(0,0,0,0.5)",
       marginBottom: 10
-    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "SPECTROGRAM \xB7 ", mode), /* @__PURE__ */ React.createElement(Label, { size: 8, color: scanning ? C.amber : C.textDim }, scanning ? `${progress.toFixed(0)}%` : sample ? "LOCKED" : "IDLE")), /* @__PURE__ */ React.createElement(Spectrogram, { modeId: mode, scanning, progress })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 } }, (sample ? sample.vitals : [
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, getMode(mode).usesCamera ? `VIEWFINDER \xB7 ${mode}` : `SPECTROGRAM \xB7 ${mode}`), /* @__PURE__ */ React.createElement(Label, { size: 8, color: scanning ? C.amber : C.textDim }, scanning ? `${progress.toFixed(0)}%` : sample ? "LOCKED" : "IDLE")), getMode(mode).usesCamera ? /* @__PURE__ */ React.createElement(
+      OpticalViewfinder,
+      {
+        ref: opticalRef,
+        active: view === "scan" && mode === "OPT",
+        scanning,
+        progress
+      }
+    ) : /* @__PURE__ */ React.createElement(Spectrogram, { modeId: mode, scanning, progress })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 } }, (sample ? sample.vitals : [
       ["--", "---", C.textFaint],
       ["--", "---", C.textFaint],
       ["--", "---", C.textFaint],
@@ -2236,7 +3257,24 @@ function Tricorder() {
           neural: snap.neural
         }
       });
-    } }), view === "comms" && /* @__PURE__ */ React.createElement(CommsView, { messages, onTransmit: transmit }), view === "log" && /* @__PURE__ */ React.createElement(HistoryView, { history, onClear: clearHistory, onResetProfile: resetProfile }), /* @__PURE__ */ React.createElement("div", { style: {
+    } }), view === "comms" && /* @__PURE__ */ React.createElement(CommsView, { messages, onTransmit: transmit }), view === "log" && /* @__PURE__ */ React.createElement(
+      HistoryView,
+      {
+        history,
+        onClear: clearHistory,
+        onResetProfile: resetProfile,
+        onExport: () => buildFieldReport({
+          profile,
+          history,
+          missionProgress,
+          completedMissions,
+          sessionMs,
+          env,
+          coords,
+          battery
+        })
+      }
+    ), view === "mission" && /* @__PURE__ */ React.createElement(MissionView, { progress: missionProgress, completed: completedMissions }), /* @__PURE__ */ React.createElement("div", { style: {
       marginTop: 14,
       display: "grid",
       gridTemplateColumns: "1fr 1fr 1fr",
@@ -2245,7 +3283,7 @@ function Tricorder() {
       color: C.textDim,
       borderTop: `1px solid ${C.line}`,
       paddingTop: 10
-    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "COORDS"), /* @__PURE__ */ React.createElement("div", { style: { color: C.text, marginTop: 2, fontSize: 10 } }, "42.3\xB0N 71.1\xB0W")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ENV"), /* @__PURE__ */ React.createElement("div", { style: { color: C.green, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: C.green }), " safe")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "REC"), /* @__PURE__ */ React.createElement("div", { style: { color: C.red, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " live"))))
+    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "COORDS"), /* @__PURE__ */ React.createElement("div", { style: { color: C.text, marginTop: 2, fontSize: 10 } }, coords ? `${coords.lat.toFixed(2)}\xB0${coords.lat >= 0 ? "N" : "S"} ${Math.abs(coords.lon).toFixed(2)}\xB0${coords.lon >= 0 ? "E" : "W"}` : "\u2014 LOCATING \u2014")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ENV"), /* @__PURE__ */ React.createElement("div", { style: { color: env.color, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color }), " ", env.label.toLowerCase())), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ELAPSED"), /* @__PURE__ */ React.createElement("div", { style: { color: C.red, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " ", fmtElapsed(sessionMs)))))
   );
 }
 
