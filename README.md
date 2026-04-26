@@ -4,7 +4,7 @@
 
 A handheld "tricorder" simulator built as a single-page web app. Pure HTML/JS/CSS, no build step required — just open `index.html` in a browser. Inspired by classic spacecraft-bridge UIs: monospace fonts, cyan-on-black, status dots, letterspaced caps, the works.
 
-[https://mbparks.com/tri](TricorderDemo)
+[Tricorder Demo](https://mbparks.com/tri)
 
 
 ## What it does
