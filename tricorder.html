@@ -376,6 +376,16 @@ const mono = {
 const pickRandom = (a) => a[Math.floor(Math.random() * a.length)];
 const nowTime = () => (/* @__PURE__ */ new Date()).toTimeString().slice(0, 5);
 const nowTimeFull = () => (/* @__PURE__ */ new Date()).toTimeString().slice(0, 8);
+const STARDATE_EPOCH_YEAR = 1953;
+const stardate = (d = /* @__PURE__ */ new Date()) => {
+  const yearStart = new Date(d.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((d - yearStart) / 864e5);
+  const frac = (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400;
+  const yearOffset = d.getFullYear() - STARDATE_EPOCH_YEAR;
+  const whole = yearOffset * 1e3 + dayOfYear;
+  const fracStr = Math.floor(frac * 100).toString().padStart(2, "0");
+  return `${whole}.${fracStr}`;
+};
 const riskColor = (r) => ({
   NONE: C.green,
   LOW: C.green,
@@ -1026,10 +1036,41 @@ const ENV_CONDITIONS = [
   { id: "interference", label: "EM INTERFERENCE", color: C.amber, interference: 14 },
   { id: "storm", label: "ION STORM", color: C.amber, interference: 22 }
 ];
+const findEnvCondition = (id) => ENV_CONDITIONS.find((c) => c.id === id) || ENV_CONDITIONS[0];
 const currentEnvironment = (sessionMs) => {
   const slot = Math.floor(sessionMs / (3 * 60 * 1e3));
   const idx = Math.abs(slot * 2654435761 % ENV_CONDITIONS.length);
   return ENV_CONDITIONS[idx];
+};
+const wmoToEnvId = (code) => {
+  if (code == null) return "clear";
+  if (code === 0) return "clear";
+  if (code <= 3) return "clear";
+  if (code === 45 || code === 48) return "particulate";
+  if (code >= 51 && code <= 57) return "particulate";
+  if (code >= 61 && code <= 67) return "particulate";
+  if (code >= 80 && code <= 82) return "ionized";
+  if (code >= 71 && code <= 77) return "interference";
+  if (code === 85 || code === 86) return "interference";
+  if (code >= 95) return "storm";
+  return "clear";
+};
+const fetchWeatherEnv = async (lat, lon) => {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&current=weather_code,temperature_2m,wind_speed_10m`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("weather fetch failed");
+  const data = await res.json();
+  const cur = data.current || {};
+  const cond = findEnvCondition(wmoToEnvId(cur.weather_code));
+  return {
+    ...cond,
+    real: true,
+    temp: cur.temperature_2m,
+    // °C
+    wind: cur.wind_speed_10m,
+    // km/h
+    code: cur.weather_code
+  };
 };
 const fmtElapsed = (ms) => {
   const s = Math.max(0, Math.floor(ms / 1e3));
@@ -1041,7 +1082,7 @@ const buildFieldReport = ({ profile, history, missionProgress, completedMissions
   const now = /* @__PURE__ */ new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const timeStr = now.toTimeString().slice(0, 5);
-  const stardate = `${(now.getFullYear() - 1953).toFixed(0)}.${Math.floor(now.getTime() / 864e5 % 365).toString().padStart(3, "0")}`;
+  const sd = stardate(now);
   const sessionStr = fmtElapsed(sessionMs);
   const line = "\u2500".repeat(56);
   const dline = "\u2550".repeat(56);
@@ -1055,7 +1096,7 @@ const buildFieldReport = ({ profile, history, missionProgress, completedMissions
   out.push("");
   out.push(`  SHIP       ${(profile.ship || "\u2014").toUpperCase()}`);
   out.push(`  OPERATOR   ${profile.last.toUpperCase()}, ${profile.first.charAt(0).toUpperCase()}.`);
-  out.push(`  STARDATE   ${stardate}`);
+  out.push(`  STARDATE   ${sd}`);
   out.push(`  FILED      ${dateStr} ${timeStr}`);
   out.push(`  SESSION    ${sessionStr} elapsed`);
   if (coords) out.push(`  COORDS     ${coords.lat.toFixed(2)}\xB0${coords.lat >= 0 ? "N" : "S"} ${Math.abs(coords.lon).toFixed(2)}\xB0${coords.lon >= 0 ? "E" : "W"}`);
@@ -2686,7 +2727,10 @@ function Tricorder() {
   }, []);
   const sessionStartRef = useRef(Date.now());
   const sessionMs = clock.getTime() - sessionStartRef.current;
-  const env = currentEnvironment(sessionMs);
+  const [coords, setCoords] = useState(null);
+  const geoTriedRef = useRef(false);
+  const [realEnv, setRealEnv] = useState(null);
+  const env = realEnv || currentEnvironment(sessionMs);
   const [battery, setBattery] = useState(87);
   const batteryHydratedRef = useRef(false);
   const [docking, setDocking] = useState(false);
@@ -2694,8 +2738,6 @@ function Tricorder() {
   const [missionProgress, setMissionProgress] = useState({});
   const [completedMissions, setCompletedMissions] = useState([]);
   const missionHydratedRef = useRef(false);
-  const [coords, setCoords] = useState(null);
-  const geoTriedRef = useRef(false);
   const drainBattery = (amount) => {
     setBattery((b) => Math.max(0, Math.min(100, b - amount)));
   };
@@ -2810,6 +2852,23 @@ function Tricorder() {
       { enableHighAccuracy: false, timeout: 8e3, maximumAge: 6e5 }
     );
   }, [profile]);
+  useEffect(() => {
+    if (!coords) return;
+    let cancelled = false;
+    const update = async () => {
+      try {
+        const e = await fetchWeatherEnv(coords.lat, coords.lon);
+        if (!cancelled) setRealEnv(e);
+      } catch (_) {
+      }
+    };
+    update();
+    const id = setInterval(update, 15 * 60 * 1e3);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [coords]);
   const batteryTierRef = useRef("ok");
   useEffect(() => {
     let tier = "ok";
@@ -2949,7 +3008,7 @@ function Tricorder() {
     t = setTimeout(() => {
       pushMsg({ from: "BRIDGE", txt: `${profile.last}, tricorder linked. Receiving your telemetry.` });
       const sched = () => {
-        const d = 9e3 + Math.random() * 15e3;
+        const d = 18e3 + Math.random() * 3e4;
         t = setTimeout(() => {
           pushMsg(generateShipMessage());
           sched();
@@ -3031,7 +3090,7 @@ function Tricorder() {
     };
     raf = requestAnimationFrame(tick);
   };
-  const timeStr = nowTimeFull();
+  const timeStr = stardate(clock);
   const statusLeft = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, mode)) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "MED")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "DIAG")) : view === "mission" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "MSN")) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "COMMS")) : /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "LOG"));
   const statusCenter = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SCAN  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "#", String(scanCount).padStart(4, "0"))) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SUBJ  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "SELF")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "DRILL ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, game ? "ACTIVE" : "IDLE")) : view === "mission" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "OBJ   ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, completedMissions.length, "/", MISSIONS.length)) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MSGS  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(messages.length).padStart(3, "0"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, "ENTR  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(history.length).padStart(3, "0")));
   const ActiveDiag = game ? getDiag(game)?.Component : null;
@@ -3140,8 +3199,10 @@ function Tricorder() {
       background: `${env.color}10`,
       display: "flex",
       justifyContent: "space-between",
-      alignItems: "center"
-    } }, /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.3em" } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color, blink: env.interference >= 14 }), " ", env.label), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.2em" } }, "INTERFERENCE +", env.interference, "%")), (() => {
+      alignItems: "center",
+      gap: 8,
+      flexWrap: "wrap"
+    } }, /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.3em" } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color, blink: env.interference >= 14 }), " ", env.label, env.real && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 8, color: env.color, opacity: 0.6, letterSpacing: "0.15em" } }, "\xB7 ", env.temp != null ? `${Math.round(env.temp)}\xB0C` : "", env.wind != null ? ` \xB7 ${Math.round(env.wind)} km/h` : "")), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.2em" } }, "INTERFERENCE +", env.interference, "%")), (() => {
       const active = MISSIONS.find((m) => !completedMissions.includes(m.id));
       if (!active) return null;
       const cur = Math.min(missionProgress[active.id] ?? 0, active.target_count);
@@ -3283,7 +3344,7 @@ function Tricorder() {
       color: C.textDim,
       borderTop: `1px solid ${C.line}`,
       paddingTop: 10
-    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "COORDS"), /* @__PURE__ */ React.createElement("div", { style: { color: C.text, marginTop: 2, fontSize: 10 } }, coords ? `${coords.lat.toFixed(2)}\xB0${coords.lat >= 0 ? "N" : "S"} ${Math.abs(coords.lon).toFixed(2)}\xB0${coords.lon >= 0 ? "E" : "W"}` : "\u2014 LOCATING \u2014")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ENV"), /* @__PURE__ */ React.createElement("div", { style: { color: env.color, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color }), " ", env.label.toLowerCase())), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ELAPSED"), /* @__PURE__ */ React.createElement("div", { style: { color: C.red, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " ", fmtElapsed(sessionMs)))))
+    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "COORDS"), /* @__PURE__ */ React.createElement("div", { style: { color: C.text, marginTop: 2, fontSize: 10 } }, coords ? `${coords.lat.toFixed(2)}\xB0${coords.lat >= 0 ? "N" : "S"} ${Math.abs(coords.lon).toFixed(2)}\xB0${coords.lon >= 0 ? "E" : "W"}` : "\u2014 LOCATING \u2014")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ENV"), /* @__PURE__ */ React.createElement("div", { style: { color: env.color, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color }), " ", env.label.toLowerCase(), env.real && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 4, color: env.color, opacity: 0.55, fontSize: 8, letterSpacing: "0.2em" } }, "\xB7LIVE"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ELAPSED"), /* @__PURE__ */ React.createElement("div", { style: { color: C.red, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " ", fmtElapsed(sessionMs)))))
   );
 }
 
