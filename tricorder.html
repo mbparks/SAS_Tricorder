@@ -4,6 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#060809" />
+
+  <!-- PWA: makes the page installable on iOS via Safari's Share Sheet,
+       and on Android Chrome via the install prompt. Once installed,
+       launches chromeless (no URL bar, no browser UI). -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MK-VII" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- Home-screen icon. Hosted PNG file (NOT a data URL) — Safari
+       iOS chokes on long base64 data URLs when reading them for
+       the Share Sheet. Place icon-192.png in the same directory
+       as this index.html. -->
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" type="image/png" href="icon-192.png" />
+
+
   <title>MK-VII Field Scanner</title>
   <style>
     html, body { margin: 0; padding: 0; background: #000; min-height: 100vh; }
@@ -21,26 +38,59 @@
   <div id="root"><div class="boot">◯ BOOTING MK-VII…</div></div>
   <script>
     (function () {
-      function show(where, msg, file, line) {
+      // The boot error handler is intentionally narrow: it only kicks
+      // in BEFORE React has mounted. Once the app is running, the
+      // React ErrorBoundary handles render errors and transient
+      // async errors are logged but not allowed to destroy the UI.
+      // This avoids the failure mode where one stray error after
+      // mount nukes a working session.
+      var mounted = false;
+      window.__markMounted = function () { mounted = true; };
+
+      function show(where, msg, file, line, stack) {
+        if (mounted) {
+          // App is already running — log to console but do not
+          // hijack the UI. Lets the user keep using the device.
+          console.error("[BOOT/" + where + "]", msg, file, line, stack);
+          return;
+        }
         var r = document.getElementById("root");
         if (!r) return;
-        r.innerHTML = '<div class="err">◯ BOOT FAILURE · ' + where + '\n\n'
-          + (msg || "unknown") + (file ? '\n\nsource: ' + file : '')
-          + (line ? '\nline: ' + line : '') + '</div>';
+        var body = '◯ BOOT FAILURE · ' + where + '\n\n'
+          + (msg || "unknown")
+          + (file ? '\n\nsource: ' + file : '')
+          + (line ? '\nline: ' + line : '')
+          + (stack ? '\n\nstack:\n' + stack : '')
+          + '\n\nbuild: ' + (window.__BUILD || "?");
+        r.innerHTML = '<div class="err">' + body.replace(/[<>&]/g, function(c){
+          return c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;';
+        }) + '</div>';
       }
-      window.addEventListener("error", function (e) { show("runtime", e.message, e.filename, e.lineno); });
-      window.addEventListener("unhandledrejection", function (e) {
-        show("promise", (e.reason && (e.reason.message || e.reason.toString())) || "rejected");
+      window.addEventListener("error", function (e) {
+        show("runtime", e.message, e.filename, e.lineno,
+             e.error && e.error.stack);
       });
+      window.addEventListener("unhandledrejection", function (e) {
+        var reason = e.reason;
+        var msg = reason && (reason.message || reason.toString()) || "rejected";
+        show("promise", msg, null, null, reason && reason.stack);
+      });
+      window.__showBootError = show;
+      window.__BUILD = "2026-04-28.0622";
     })();
   </script>
   <script>
-    if (!window.storage) {
-      window.storage = {
-        get: function (k) { try { var v = localStorage.getItem(k); return Promise.resolve(v !== null ? { key:k, value:v } : null); } catch (e) { return Promise.resolve(null); } },
-        set: function (k, v) { try { localStorage.setItem(k, v); return Promise.resolve({ key:k, value:v }); } catch (e) { return Promise.resolve(null); } },
-        delete: function (k) { try { localStorage.removeItem(k); return Promise.resolve({ key:k, deleted:true }); } catch (e) { return Promise.resolve(null); } },
-      };
+    try {
+      if (!window.storage) {
+        window.storage = {
+          get: function (k) { try { var v = localStorage.getItem(k); return Promise.resolve(v !== null ? { key:k, value:v } : null); } catch (e) { return Promise.resolve(null); } },
+          set: function (k, v) { try { localStorage.setItem(k, v); return Promise.resolve({ key:k, value:v }); } catch (e) { return Promise.resolve(null); } },
+          delete: function (k) { try { localStorage.removeItem(k); return Promise.resolve({ key:k, deleted:true }); } catch (e) { return Promise.resolve(null); } },
+        };
+      }
+    } catch (e) {
+      window.__showBootError && window.__showBootError("storage-init",
+        e.message || String(e), null, null, e.stack);
     }
   </script>
   <script>
@@ -348,26 +398,109 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
   </script>
   <script>
+try {
 (function () {
   var useState  = React.useState;
   var useEffect = React.useEffect;
   var useRef    = React.useRef;
 
-const C = {
-  bg: "#060809",
-  panel: "rgba(18, 26, 30, 0.45)",
-  line: "rgba(130, 180, 190, 0.22)",
-  lineBright: "rgba(160, 220, 230, 0.45)",
-  cyan: "#8fd3d8",
-  cyanDim: "#5c8a8f",
-  amber: "#d99a4e",
-  amberDim: "#8a6332",
-  red: "#c25050",
-  redDim: "#6a2a2a",
-  green: "#7fc88a",
-  text: "#b9d0d3",
-  textDim: "#5d7377",
-  textFaint: "#344247"
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+const THEMES = {
+  tactical: {
+    bg: "#060809",
+    panel: "rgba(18, 26, 30, 0.45)",
+    line: "rgba(130, 180, 190, 0.22)",
+    lineBright: "rgba(160, 220, 230, 0.45)",
+    cyan: "#8fd3d8",
+    cyanDim: "#5c8a8f",
+    amber: "#d99a4e",
+    amberDim: "#8a6332",
+    red: "#c25050",
+    redDim: "#6a2a2a",
+    green: "#7fc88a",
+    text: "#b9d0d3",
+    textDim: "#5d7377",
+    textFaint: "#344247"
+  },
+  medical: {
+    bg: "#040a06",
+    panel: "rgba(20, 30, 24, 0.45)",
+    line: "rgba(140, 200, 160, 0.20)",
+    lineBright: "rgba(160, 220, 180, 0.45)",
+    cyan: "#9fd8a8",
+    cyanDim: "#5e8867",
+    amber: "#d8c374",
+    amberDim: "#857541",
+    red: "#c87878",
+    redDim: "#6a3838",
+    green: "#7fc88a",
+    text: "#c0d6c4",
+    textDim: "#5d776a",
+    textFaint: "#324239"
+  },
+  engineering: {
+    bg: "#0a0604",
+    panel: "rgba(28, 18, 12, 0.5)",
+    line: "rgba(200, 140, 90, 0.22)",
+    lineBright: "rgba(220, 165, 120, 0.45)",
+    cyan: "#e3a06c",
+    cyanDim: "#946642",
+    amber: "#d9c050",
+    amberDim: "#857033",
+    red: "#d04848",
+    redDim: "#702626",
+    green: "#a0c878",
+    text: "#d6c0b3",
+    textDim: "#80695e",
+    textFaint: "#3a2e28"
+  },
+  stealth: {
+    bg: "#020304",
+    panel: "rgba(10, 12, 14, 0.6)",
+    line: "rgba(80, 95, 100, 0.18)",
+    lineBright: "rgba(110, 130, 140, 0.30)",
+    cyan: "#5a8088",
+    cyanDim: "#3a565b",
+    amber: "#86715a",
+    amberDim: "#5a4d3e",
+    red: "#7a4848",
+    redDim: "#4a2828",
+    green: "#5e8466",
+    text: "#7d8a8d",
+    textDim: "#42504f",
+    textFaint: "#222a29"
+  }
+};
+const THEME_LIST = [
+  { id: "tactical", label: "BRIDGE TACTICAL", subtitle: "cyan / amber \xB7 default" },
+  { id: "medical", label: "MEDICAL BAY", subtitle: "green / mint" },
+  { id: "engineering", label: "ENGINEERING", subtitle: "amber / brass" },
+  { id: "stealth", label: "STEALTH", subtitle: "dim \xB7 night ops" }
+];
+let C = __spreadValues({}, THEMES.tactical);
+const applyTheme = (id) => {
+  const t = THEMES[id] || THEMES.tactical;
+  Object.keys(t).forEach((k) => {
+    C[k] = t[k];
+  });
 };
 const mono = {
   fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', ui-monospace, monospace",
@@ -412,7 +545,7 @@ const Dot = ({ color, blink }) => /* @__PURE__ */ React.createElement("span", { 
   verticalAlign: "middle",
   marginRight: 4
 } });
-const Label = ({ children, size = 9, color = C.textDim, spacing = "0.28em" }) => /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: size, color, letterSpacing: spacing, textTransform: "uppercase" } }, children);
+const Label = ({ children, size = 9, color = C.textDim, spacing = "0.28em" }) => /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: size, color, letterSpacing: spacing, textTransform: "uppercase" }) }, children);
 const SCAN_MODES = [
   {
     id: "BIO",
@@ -554,6 +687,11 @@ const SCAN_MODES = [
   {
     id: "EM",
     label: "EM",
+    // Renders a compass widget below the spectrogram when supported.
+    // The widget tracks the device's compass heading and shows a
+    // drifting "signal source" the user can hunt with their phone's
+    // orientation. Pure flavor — no scan-result impact.
+    usesCompass: true,
     samples: [
       {
         subject: "Coherent pulse",
@@ -870,6 +1008,7 @@ const audio = {
     this.muted = !!v;
   },
   play(id) {
+    var _a, _b, _c;
     if (this.muted) return null;
     const recipe = SOUNDS[id];
     if (!recipe) return null;
@@ -921,11 +1060,11 @@ const audio = {
       let echoWet = null;
       if (recipe.echo) {
         const delay = ctx.createDelay(2.5);
-        delay.delayTime.value = recipe.echo.time ?? 0.22;
+        delay.delayTime.value = (_a = recipe.echo.time) != null ? _a : 0.22;
         const feedback = ctx.createGain();
-        feedback.gain.value = Math.min(0.85, recipe.echo.feedback ?? 0.4);
+        feedback.gain.value = Math.min(0.85, (_b = recipe.echo.feedback) != null ? _b : 0.4);
         echoWet = ctx.createGain();
-        echoWet.gain.value = recipe.echo.mix ?? 0.5;
+        echoWet.gain.value = (_c = recipe.echo.mix) != null ? _c : 0.5;
         tail.connect(delay);
         delay.connect(feedback);
         feedback.connect(delay);
@@ -960,7 +1099,7 @@ const audio = {
     return null;
   },
   stop(handle) {
-    if (handle?.stop) handle.stop();
+    if (handle == null ? void 0 : handle.stop) handle.stop();
   }
 };
 const BATTERY_COSTS = {
@@ -979,7 +1118,10 @@ const BATTERY_COSTS = {
   ambient_min: 0.05
   // passive drain per minute (tab open)
 };
-const chargeFor = (action) => BATTERY_COSTS[action] ?? 0;
+const chargeFor = (action) => {
+  var _a;
+  return (_a = BATTERY_COSTS[action]) != null ? _a : 0;
+};
 const BATTERY_LOW = 20;
 const BATTERY_CRITICAL = 5;
 const MISSIONS = [
@@ -1024,7 +1166,10 @@ const MISSIONS = [
     brief: "Pass any diagnostic drill.",
     target_kind: "diag",
     target_count: 1,
-    matchEntry: (e) => e.kind === "diag" && (e.data?.grade === "PASS" || (e.data?.best ?? 0) >= 3),
+    matchEntry: (e) => {
+      var _a, _b, _c;
+      return e.kind === "diag" && (((_a = e.data) == null ? void 0 : _a.grade) === "PASS" || ((_c = (_b = e.data) == null ? void 0 : _b.best) != null ? _c : 0) >= 3);
+    },
     reward_msg: { from: "ENGINEERING", txt: "Tricorder calibrated. Drift within spec." }
   }
 ];
@@ -1062,15 +1207,14 @@ const fetchWeatherEnv = async (lat, lon) => {
   const data = await res.json();
   const cur = data.current || {};
   const cond = findEnvCondition(wmoToEnvId(cur.weather_code));
-  return {
-    ...cond,
+  return __spreadProps(__spreadValues({}, cond), {
     real: true,
     temp: cur.temperature_2m,
     // °C
     wind: cur.wind_speed_10m,
     // km/h
     code: cur.weather_code
-  };
+  });
 };
 const fmtElapsed = (ms) => {
   const s = Math.max(0, Math.floor(ms / 1e3));
@@ -1079,6 +1223,7 @@ const fmtElapsed = (ms) => {
   return `${m}:${r}`;
 };
 const buildFieldReport = ({ profile, history, missionProgress, completedMissions, sessionMs, env, coords, battery }) => {
+  var _a, _b;
   const now = /* @__PURE__ */ new Date();
   const dateStr = now.toISOString().slice(0, 10);
   const timeStr = now.toTimeString().slice(0, 5);
@@ -1108,7 +1253,7 @@ const buildFieldReport = ({ profile, history, missionProgress, completedMissions
   out.push(line);
   for (const m of MISSIONS) {
     const done = completedMissions.includes(m.id);
-    const cur = Math.min(missionProgress[m.id] ?? 0, m.target_count);
+    const cur = Math.min((_a = missionProgress[m.id]) != null ? _a : 0, m.target_count);
     const mark = done ? "[\u2713]" : "[ ]";
     out.push(`  ${mark} ${m.title.padEnd(28)} ${cur}/${m.target_count}`);
     out.push(`        ${m.brief}`);
@@ -1119,7 +1264,7 @@ const buildFieldReport = ({ profile, history, missionProgress, completedMissions
     out.push(`  SCANS LOGGED (${scans.length})`);
     out.push(line);
     for (const e of scans.slice().reverse()) {
-      out.push(`  [${e.timeStr}] ${(e.data?.mode || "\u2014").padEnd(4)}  ${e.title}`);
+      out.push(`  [${e.timeStr}] ${(((_b = e.data) == null ? void 0 : _b.mode) || "\u2014").padEnd(4)}  ${e.title}`);
       out.push(`           ${e.subtitle}`);
     }
     out.push("");
@@ -1256,8 +1401,9 @@ function OpticalViewfinder({ active, scanning, progress, onReady }, ref) {
     if (videoRef.current) videoRef.current.srcObject = null;
   };
   const start = async () => {
+    var _a;
     if (streamRef.current) return;
-    if (!navigator.mediaDevices?.getUserMedia) {
+    if (!((_a = navigator.mediaDevices) == null ? void 0 : _a.getUserMedia)) {
       setState("unavailable");
       return;
     }
@@ -1277,9 +1423,9 @@ function OpticalViewfinder({ active, scanning, progress, onReady }, ref) {
         });
       }
       setState("live");
-      onReady?.();
+      onReady == null ? void 0 : onReady();
     } catch (err) {
-      setState(err?.name === "NotAllowedError" ? "denied" : "unavailable");
+      setState((err == null ? void 0 : err.name) === "NotAllowedError" ? "denied" : "unavailable");
     }
   };
   useEffect(() => {
@@ -1318,8 +1464,7 @@ function OpticalViewfinder({ active, scanning, progress, onReady }, ref) {
     justifyContent: "center",
     textAlign: "center",
     padding: 14
-  } }, /* @__PURE__ */ React.createElement("div", null, state === "idle" && /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, letterSpacing: "0.3em" } }, "\u25EF OPTICAL SENSOR \xB7 STANDBY"), state === "requesting" && /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.amber, letterSpacing: "0.3em", animation: "blink 0.8s infinite" } }, "\u25C9 INITIALIZING SENSOR\u2026"), state === "denied" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.red, letterSpacing: "0.3em" } }, "\u25EF SENSOR ACCESS DENIED"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 8, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" } }, "ENABLE CAMERA IN BROWSER SETTINGS"), /* @__PURE__ */ React.createElement("button", { onClick: start, style: {
-    ...mono,
+  } }, /* @__PURE__ */ React.createElement("div", null, state === "idle" && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.textDim, letterSpacing: "0.3em" }) }, "\u25EF OPTICAL SENSOR \xB7 STANDBY"), state === "requesting" && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.amber, letterSpacing: "0.3em", animation: "blink 0.8s infinite" }) }, "\u25C9 INITIALIZING SENSOR\u2026"), state === "denied" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.red, letterSpacing: "0.3em" }) }, "\u25EF SENSOR ACCESS DENIED"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" }) }, "ENABLE CAMERA IN BROWSER SETTINGS"), /* @__PURE__ */ React.createElement("button", { onClick: start, style: __spreadProps(__spreadValues({}, mono), {
     marginTop: 12,
     padding: "6px 14px",
     fontSize: 9,
@@ -1329,7 +1474,7 @@ function OpticalViewfinder({ active, scanning, progress, onReady }, ref) {
     color: C.amber,
     borderRadius: 3,
     cursor: "pointer"
-  } }, "RETRY")), state === "unavailable" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.amber, letterSpacing: "0.3em" } }, "\u25EF NO OPTICAL SENSOR DETECTED"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 8, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" } }, "HARDWARE NOT AVAILABLE ON THIS DEVICE")))), state === "live" && /* @__PURE__ */ React.createElement(React.Fragment, null, [
+  }) }, "RETRY")), state === "unavailable" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.amber, letterSpacing: "0.3em" }) }, "\u25EF NO OPTICAL SENSOR DETECTED"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" }) }, "HARDWARE NOT AVAILABLE ON THIS DEVICE")))), state === "live" && /* @__PURE__ */ React.createElement(React.Fragment, null, [
     { top: 6, left: 6, b: ["top", "left"] },
     { top: 6, right: 6, b: ["top", "right"] },
     { bottom: 6, left: 6, b: ["bottom", "left"] },
@@ -1389,20 +1534,157 @@ function OpticalViewfinder({ active, scanning, progress, onReady }, ref) {
     bottom: 0,
     width: `${progress}%`,
     background: `${C.amber}10`
-  } }), /* @__PURE__ */ React.createElement("div", { style: {
+  } }), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({
     position: "absolute",
     top: 8,
-    right: 24,
-    ...mono,
+    right: 24
+  }, mono), {
     fontSize: 8,
     letterSpacing: "0.3em",
     color: C.red,
     display: "flex",
     alignItems: "center",
     gap: 4
-  } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " OPT")));
+  }) }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " OPT")));
 }
 OpticalViewfinder = React.forwardRef(OpticalViewfinder);
+function EmCompass() {
+  const [permission, setPermission] = useState(() => {
+    if (typeof DeviceOrientationEvent === "undefined") return "unsupported";
+    if (typeof DeviceOrientationEvent.requestPermission === "function") return "needs-grant";
+    return "granted";
+  });
+  const [heading, setHeading] = useState(null);
+  const sourceBearingRef = useRef(Math.random() * 360);
+  const sourceDriftRateRef = useRef(0.5 + Math.random() * 1);
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (permission !== "granted") return;
+    const onOrient = (e) => {
+      const h = typeof e.webkitCompassHeading === "number" ? e.webkitCompassHeading : typeof e.alpha === "number" ? (360 - e.alpha) % 360 : null;
+      if (h != null) setHeading(h);
+    };
+    window.addEventListener("deviceorientation", onOrient, true);
+    return () => window.removeEventListener("deviceorientation", onOrient, true);
+  }, [permission]);
+  useEffect(() => {
+    if (permission !== "granted") return;
+    let raf, last = performance.now();
+    const tick = (now) => {
+      const dt = (now - last) / 1e3;
+      last = now;
+      sourceBearingRef.current = (sourceBearingRef.current + sourceDriftRateRef.current * dt) % 360;
+      force((n) => (n + 1) % 1024);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [permission]);
+  const requestGrant = () => {
+    if (typeof DeviceOrientationEvent.requestPermission !== "function") return;
+    DeviceOrientationEvent.requestPermission().then((res) => {
+      setPermission(res === "granted" ? "granted" : "denied");
+      if (res === "granted") audio.play("confirm");
+    }).catch(() => setPermission("denied"));
+  };
+  const source = sourceBearingRef.current;
+  const relBearing = heading == null ? null : (source - heading + 540) % 360 - 180;
+  const aligned = relBearing != null && Math.abs(relBearing) < 15;
+  const accent = aligned ? C.green : C.cyan;
+  const SIZE = 96;
+  const cx = SIZE / 2, cy = SIZE / 2, R = SIZE / 2 - 4;
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    border: `1px solid ${C.line}`,
+    borderRadius: 6,
+    padding: 8,
+    background: "rgba(0,0,0,0.5)",
+    marginBottom: 10
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "COMPASS \xB7 EM BEARING"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: aligned ? C.green : C.textDim }, permission === "granted" && heading != null ? aligned ? "\u25CF ALIGNED" : `bearing ${Math.round(heading).toString().padStart(3, "0")}\xB0` : permission === "needs-grant" ? "tap to enable" : permission === "denied" ? "permission denied" : permission === "unsupported" ? "unsupported" : "\u2014")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    position: "relative",
+    width: SIZE,
+    height: SIZE,
+    flex: `0 0 ${SIZE}px`
+  } }, /* @__PURE__ */ React.createElement("svg", { width: SIZE, height: SIZE, style: { display: "block" } }, /* @__PURE__ */ React.createElement("circle", { cx, cy, r: R, fill: "none", stroke: C.line, strokeWidth: "1" }), Array.from({ length: 24 }, (_, i) => {
+    const a = i * 15 * Math.PI / 180;
+    const major = i % 6 === 0;
+    const r1 = R - (major ? 8 : 4);
+    const r2 = R - 1;
+    return /* @__PURE__ */ React.createElement(
+      "line",
+      {
+        key: i,
+        x1: cx + Math.sin(a) * r1,
+        y1: cy - Math.cos(a) * r1,
+        x2: cx + Math.sin(a) * r2,
+        y2: cy - Math.cos(a) * r2,
+        stroke: major ? C.cyanDim : C.line,
+        strokeWidth: major ? 1.5 : 1
+      }
+    );
+  }), (() => {
+    const cardinals = [["N", 0], ["E", 90], ["S", 180], ["W", 270]];
+    return cardinals.map(([label, deg]) => {
+      const rel = heading == null ? deg : (deg - heading + 360) % 360;
+      const a = rel * Math.PI / 180;
+      const r = R - 18;
+      return /* @__PURE__ */ React.createElement(
+        "text",
+        {
+          key: label,
+          x: cx + Math.sin(a) * r,
+          y: cy - Math.cos(a) * r + 3,
+          textAnchor: "middle",
+          fontSize: "9",
+          fontFamily: "ui-monospace, monospace",
+          fill: label === "N" ? C.amber : C.cyanDim,
+          style: { letterSpacing: "0.1em" }
+        },
+        label
+      );
+    });
+  })(), heading != null && (() => {
+    const rel = (source - heading + 540) % 360 - 180;
+    const a = rel * Math.PI / 180;
+    const r = R - 7;
+    return /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement(
+      "circle",
+      {
+        cx: cx + Math.sin(a) * r,
+        cy: cy - Math.cos(a) * r,
+        r: "3",
+        fill: accent
+      },
+      /* @__PURE__ */ React.createElement("animate", { attributeName: "r", values: "3;4.5;3", dur: "1.4s", repeatCount: "indefinite" })
+    ));
+  })(), /* @__PURE__ */ React.createElement(
+    "line",
+    {
+      x1: cx,
+      y1: cy - R + 2,
+      x2: cx,
+      y2: cy - R + 14,
+      stroke: accent,
+      strokeWidth: "2"
+    }
+  ), /* @__PURE__ */ React.createElement("circle", { cx, cy, r: "2", fill: accent }))), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, permission === "needs-grant" ? /* @__PURE__ */ React.createElement("button", { onClick: requestGrant, style: __spreadProps(__spreadValues({}, mono), {
+    width: "100%",
+    padding: "8px 10px",
+    fontSize: 9,
+    letterSpacing: "0.3em",
+    border: `1px solid ${C.cyan}`,
+    background: `${C.cyan}14`,
+    color: C.cyan,
+    borderRadius: 3,
+    cursor: "pointer",
+    textShadow: `0 0 4px ${C.cyan}66`
+  }) }, "\u25C9 TAP TO ENABLE COMPASS") : permission === "denied" ? /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.amberDim, lineHeight: 1.5 }) }, "compass permission refused \u2014 enable in browser/iOS settings to activate") : permission === "unsupported" ? /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textFaint, lineHeight: 1.5 }) }, "orientation sensor unavailable on this device") : /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, lineHeight: 1.6 }) }, /* @__PURE__ */ React.createElement("div", { style: { color: C.textDim } }, "HEADING ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text, marginLeft: 4 } }, heading != null ? `${Math.round(heading).toString().padStart(3, "0")}\xB0` : "\u2014")), /* @__PURE__ */ React.createElement("div", { style: { color: C.textDim } }, "SOURCE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text, marginLeft: 4 } }, `${Math.round(source).toString().padStart(3, "0")}\xB0`)), /* @__PURE__ */ React.createElement("div", { style: { color: C.textDim } }, "OFFSET ", /* @__PURE__ */ React.createElement("span", { style: { color: aligned ? C.green : C.amber, marginLeft: 4 } }, relBearing != null ? `${relBearing > 0 ? "+" : ""}${Math.round(relBearing)}\xB0` : "\u2014")), aligned && /* @__PURE__ */ React.createElement("div", { style: {
+    color: C.green,
+    marginTop: 4,
+    letterSpacing: "0.25em",
+    textShadow: `0 0 6px ${C.green}66`,
+    fontSize: 8
+  } }, "\u25CF LOCK")))));
+}
 const VitalCell = ({ k, v, color }) => /* @__PURE__ */ React.createElement("div", { style: {
   border: `1px solid ${C.line}`,
   borderRadius: 4,
@@ -1410,20 +1692,18 @@ const VitalCell = ({ k, v, color }) => /* @__PURE__ */ React.createElement("div"
   background: "rgba(0,0,0,0.3)",
   textAlign: "center",
   minWidth: 0
-} }, /* @__PURE__ */ React.createElement(Label, { size: 8 }, k), /* @__PURE__ */ React.createElement("div", { style: {
-  ...mono,
+} }, /* @__PURE__ */ React.createElement(Label, { size: 8 }, k), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
   fontSize: 12,
   color,
   marginTop: 4,
   textShadow: `0 0 6px ${color}55`,
   overflow: "hidden",
   textOverflow: "ellipsis"
-} }, v));
+}) }, v));
 const ModeBtn = ({ label, active, onClick, disabled }) => /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
   audio.play("tick");
-  onClick?.(e);
-}, disabled, style: {
-  ...mono,
+  onClick == null ? void 0 : onClick(e);
+}, disabled, style: __spreadProps(__spreadValues({}, mono), {
   fontSize: 11,
   letterSpacing: "0.3em",
   padding: "10px 4px",
@@ -1436,12 +1716,11 @@ const ModeBtn = ({ label, active, onClick, disabled }) => /* @__PURE__ */ React.
   textShadow: active ? `0 0 6px ${C.cyan}66` : "none",
   opacity: disabled && !active ? 0.4 : 1,
   transition: "all 0.15s"
-} }, label);
+}) }, label);
 const Tab = ({ label, active, onClick, badge }) => /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
   audio.play("tick");
-  onClick?.(e);
-}, style: {
-  ...mono,
+  onClick == null ? void 0 : onClick(e);
+}, style: __spreadProps(__spreadValues({}, mono), {
   flex: 1,
   padding: "11px 2px",
   fontSize: 10,
@@ -1453,7 +1732,7 @@ const Tab = ({ label, active, onClick, badge }) => /* @__PURE__ */ React.createE
   cursor: "pointer",
   textShadow: active ? `0 0 6px ${C.cyan}66` : "none",
   position: "relative"
-} }, label, badge > 0 && /* @__PURE__ */ React.createElement("span", { style: {
+}) }, label, badge > 0 && /* @__PURE__ */ React.createElement("span", { style: {
   position: "absolute",
   top: 3,
   right: 4,
@@ -1480,21 +1759,19 @@ const Toast = ({ msg }) => /* @__PURE__ */ React.createElement("div", { style: {
   padding: "10px 12px",
   boxShadow: `0 0 18px ${C.amber}55`,
   animation: "toast-in 0.35s cubic-bezier(.2,.7,.2,1)"
-} }, /* @__PURE__ */ React.createElement("div", { style: {
-  ...mono,
+} }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
   fontSize: 9,
   color: C.amber,
   letterSpacing: "0.3em",
   marginBottom: 5,
   display: "flex",
   justifyContent: "space-between"
-} }, /* @__PURE__ */ React.createElement("span", null, "\u25AE INCOMING \xB7 ", msg.from), /* @__PURE__ */ React.createElement("span", { style: { color: C.amberDim } }, msg.time)), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 11, color: C.text, lineHeight: 1.4 } }, msg.txt));
+}) }, /* @__PURE__ */ React.createElement("span", null, "\u25AE INCOMING \xB7 ", msg.from), /* @__PURE__ */ React.createElement("span", { style: { color: C.amberDim } }, msg.time)), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 11, color: C.text, lineHeight: 1.4 }) }, msg.txt));
 function DiagMenu({ onSelect }) {
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "12px 0" } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "AVAILABLE DIAGNOSTICS"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginTop: 10 } }, DIAGS.map((g) => /* @__PURE__ */ React.createElement("button", { key: g.id, onClick: () => {
     audio.play("beep");
     onSelect(g.id);
-  }, style: {
-    ...mono,
+  }, style: __spreadProps(__spreadValues({}, mono), {
     textAlign: "left",
     padding: "14px",
     border: `1px solid ${C.line}`,
@@ -1505,7 +1782,7 @@ function DiagMenu({ onSelect }) {
     display: "flex",
     alignItems: "center",
     gap: 14
-  } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, color: C.cyan, textShadow: `0 0 8px ${C.cyan}66` } }, g.icon), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` } }, g.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.textDim, letterSpacing: "0.15em", marginTop: 4 } }, g.desc)), /* @__PURE__ */ React.createElement("div", { style: { color: C.cyanDim, fontSize: 14 } }, "\u25B6")))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, padding: "10px", border: `1px dashed ${C.line}`, borderRadius: 4, textAlign: "center" } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.textFaint }, "MORE DRILLS IN FW 2.8")));
+  }) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 22, color: C.cyan, textShadow: `0 0 8px ${C.cyan}66` } }, g.icon), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` } }, g.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9, color: C.textDim, letterSpacing: "0.15em", marginTop: 4 } }, g.desc)), /* @__PURE__ */ React.createElement("div", { style: { color: C.cyanDim, fontSize: 14 } }, "\u25B6")))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, padding: "10px", border: `1px dashed ${C.line}`, borderRadius: 4, textAlign: "center" } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.textFaint }, "MORE DRILLS IN FW 2.8")));
 }
 function SignalLockGame({ onExit, onComplete }) {
   const TOTAL = 5;
@@ -1534,7 +1811,7 @@ function SignalLockGame({ onExit, onComplete }) {
   useEffect(() => {
     if (done && !reportedRef.current) {
       reportedRef.current = true;
-      onComplete?.({
+      onComplete == null ? void 0 : onComplete({
         kind: "diag",
         title: "Signal Lock",
         subtitle: `${grade} \xB7 ${score} pts`,
@@ -1570,8 +1847,7 @@ function SignalLockGame({ onExit, onComplete }) {
     }, 1100);
   };
   if (done) {
-    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px 10px" } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyanDim }, "DIAGNOSTIC COMPLETE"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 32, color: gradeColor, marginTop: 14, textShadow: `0 0 14px ${gradeColor}88` } }, score, " pts"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 12, color: gradeColor, letterSpacing: "0.35em", marginTop: 8 } }, grade), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
-      ...mono,
+    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px 10px" } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyanDim }, "DIAGNOSTIC COMPLETE"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 32, color: gradeColor, marginTop: 14, textShadow: `0 0 14px ${gradeColor}88` }) }, score, " pts"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 12, color: gradeColor, letterSpacing: "0.35em", marginTop: 8 }) }, grade), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: __spreadProps(__spreadValues({}, mono), {
       marginTop: 28,
       padding: "12px 22px",
       border: `1px solid ${C.cyan}`,
@@ -1581,7 +1857,7 @@ function SignalLockGame({ onExit, onComplete }) {
       cursor: "pointer",
       letterSpacing: "0.35em",
       fontSize: 11
-    } }, "\u25C0 EXIT"));
+    }) }, "\u25C0 EXIT"));
   }
   const rc = result ? result.p >= 100 ? C.green : result.p >= 50 ? C.cyan : result.p >= 20 ? C.amber : C.red : C.cyan;
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 9 }, "ROUND ", round, " / ", TOTAL), /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyan }, score, " PTS")), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "TAP LOCK WHEN INSIDE THE ZONE"), /* @__PURE__ */ React.createElement("div", { style: {
@@ -1626,8 +1902,7 @@ function SignalLockGame({ onExit, onComplete }) {
     width: 1,
     height: i === 50 ? 10 : i % 50 === 0 ? 8 : 4,
     background: C.line
-  } }))), /* @__PURE__ */ React.createElement("div", { style: { height: 38, textAlign: "center", marginTop: 10 } }, result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 15, color: rc, letterSpacing: "0.35em", textShadow: `0 0 8px ${rc}88` } }, result.r), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, marginTop: 3 } }, "+", result.p, " pts"))), /* @__PURE__ */ React.createElement("button", { onClick: lock, disabled: !!result, style: {
-    ...mono,
+  } }))), /* @__PURE__ */ React.createElement("div", { style: { height: 38, textAlign: "center", marginTop: 10 } }, result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 15, color: rc, letterSpacing: "0.35em", textShadow: `0 0 8px ${rc}88` }) }, result.r), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.textDim, marginTop: 3 }) }, "+", result.p, " pts"))), /* @__PURE__ */ React.createElement("button", { onClick: lock, disabled: !!result, style: __spreadProps(__spreadValues({}, mono), {
     width: "100%",
     padding: "16px",
     fontSize: 15,
@@ -1639,8 +1914,7 @@ function SignalLockGame({ onExit, onComplete }) {
     cursor: result ? "default" : "pointer",
     textShadow: `0 0 10px ${C.cyan}`,
     animation: result ? "none" : "idle-pulse 2.4s ease-in-out infinite"
-  } }, "\u25C9 LOCK"), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
-    ...mono,
+  }) }, "\u25C9 LOCK"), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: __spreadProps(__spreadValues({}, mono), {
     width: "100%",
     marginTop: 8,
     padding: "8px",
@@ -1651,7 +1925,7 @@ function SignalLockGame({ onExit, onComplete }) {
     cursor: "pointer",
     fontSize: 10,
     letterSpacing: "0.3em"
-  } }, "\u25C0 ABORT"));
+  }) }, "\u25C0 ABORT"));
 }
 function DecryptGame({ onExit, onComplete }) {
   const GLYPHS = ["\u256C", "\u2573", "\u25CE", "\u25C8", "\u27C1", "\u2B22", "\u2B21", "\u25A3", "\u25C7"];
@@ -1684,7 +1958,7 @@ function DecryptGame({ onExit, onComplete }) {
     if (phase === "done" && !reportedRef.current) {
       reportedRef.current = true;
       const color = best >= 5 ? C.green : best >= 3 ? C.amber : C.red;
-      onComplete?.({
+      onComplete == null ? void 0 : onComplete({
         kind: "diag",
         title: "Decrypt Cipher",
         subtitle: `${best} glyph${best === 1 ? "" : "s"} decoded`,
@@ -1717,8 +1991,7 @@ function DecryptGame({ onExit, onComplete }) {
     }
   };
   if (phase === "done") {
-    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px 10px" } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyanDim }, "DECRYPT COMPLETE"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 32, color: C.cyan, marginTop: 14, textShadow: `0 0 14px ${C.cyan}88` } }, best), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, letterSpacing: "0.3em", marginTop: 6 } }, "LONGEST SEQUENCE DECODED"), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
-      ...mono,
+    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px 10px" } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyanDim }, "DECRYPT COMPLETE"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 32, color: C.cyan, marginTop: 14, textShadow: `0 0 14px ${C.cyan}88` }) }, best), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.textDim, letterSpacing: "0.3em", marginTop: 6 }) }, "LONGEST SEQUENCE DECODED"), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: __spreadProps(__spreadValues({}, mono), {
       marginTop: 28,
       padding: "12px 22px",
       border: `1px solid ${C.cyan}`,
@@ -1728,7 +2001,7 @@ function DecryptGame({ onExit, onComplete }) {
       cursor: "pointer",
       letterSpacing: "0.35em",
       fontSize: 11
-    } }, "\u25C0 EXIT"));
+    }) }, "\u25C0 EXIT"));
   }
   const status = {
     init: { t: "INITIALIZING\u2026", c: C.textDim },
@@ -1737,10 +2010,10 @@ function DecryptGame({ onExit, onComplete }) {
     correct: { t: "DECRYPT CONFIRMED", c: C.green },
     wrong: { t: "CIPHER MISMATCH", c: C.red }
   }[phase];
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 9 }, "CIPHER LV ", round), /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyan }, "BEST ", best)), /* @__PURE__ */ React.createElement("div", { style: {
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "10px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 9 }, "CIPHER LV ", round), /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyan }, "BEST ", best)), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({
     textAlign: "center",
-    padding: "10px 0",
-    ...mono,
+    padding: "10px 0"
+  }, mono), {
     fontSize: 11,
     letterSpacing: "0.35em",
     color: status.c,
@@ -1748,10 +2021,9 @@ function DecryptGame({ onExit, onComplete }) {
     marginBottom: 10,
     minHeight: 16,
     transition: "color 0.3s"
-  } }, "\u25BA ", status.t), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } }, GLYPHS.map((g, i) => {
+  }) }, "\u25BA ", status.t), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } }, GLYPHS.map((g, i) => {
     const on = highlighted === i;
-    return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => tap(i), disabled: phase !== "input", style: {
-      ...mono,
+    return /* @__PURE__ */ React.createElement("button", { key: i, onClick: () => tap(i), disabled: phase !== "input", style: __spreadProps(__spreadValues({}, mono), {
       aspectRatio: "1 / 1",
       fontSize: 32,
       border: `1px solid ${on ? C.amber : C.line}`,
@@ -1762,9 +2034,8 @@ function DecryptGame({ onExit, onComplete }) {
       textShadow: on ? `0 0 14px ${C.amber}` : `0 0 6px ${C.cyan}55`,
       transition: "all 0.12s",
       opacity: phase === "wrong" ? 0.5 : 1
-    } }, g);
-  })), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
-    ...mono,
+    }) }, g);
+  })), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: __spreadProps(__spreadValues({}, mono), {
     width: "100%",
     marginTop: 14,
     padding: "8px",
@@ -1775,7 +2046,7 @@ function DecryptGame({ onExit, onComplete }) {
     cursor: "pointer",
     fontSize: 10,
     letterSpacing: "0.3em"
-  } }, "\u25C0 ABORT"));
+  }) }, "\u25C0 ABORT"));
 }
 function SubspaceTune({ onExit, onComplete }) {
   const TOTAL = 5;
@@ -1795,7 +2066,7 @@ function SubspaceTune({ onExit, onComplete }) {
   useEffect(() => {
     if (done && !reportedRef.current) {
       reportedRef.current = true;
-      onComplete?.({
+      onComplete == null ? void 0 : onComplete({
         kind: "diag",
         title: "Subspace Tune",
         subtitle: `${grade} \xB7 ${score} pts`,
@@ -1805,9 +2076,10 @@ function SubspaceTune({ onExit, onComplete }) {
     }
   }, [done, grade, gradeColor, score, onComplete]);
   const onPointerMove = (e) => {
+    var _a, _b, _c;
     if (dragRef.current == null) return;
     const rect = dragRef.current.getBoundingClientRect();
-    const x = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
+    const x = ((_c = e.clientX) != null ? _c : (_b = (_a = e.touches) == null ? void 0 : _a[0]) == null ? void 0 : _b.clientX) - rect.left;
     const v = Math.max(0, Math.min(1, x / rect.width));
     setDial(v);
   };
@@ -1859,8 +2131,7 @@ function SubspaceTune({ onExit, onComplete }) {
     }, 1100);
   };
   if (done) {
-    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px 10px" } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyanDim }, "DIAGNOSTIC COMPLETE"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 32, color: gradeColor, marginTop: 14, textShadow: `0 0 14px ${gradeColor}88` } }, score, " pts"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 12, color: gradeColor, letterSpacing: "0.35em", marginTop: 8 } }, grade), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
-      ...mono,
+    return /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "50px 10px" } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.cyanDim }, "DIAGNOSTIC COMPLETE"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 32, color: gradeColor, marginTop: 14, textShadow: `0 0 14px ${gradeColor}88` }) }, score, " pts"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 12, color: gradeColor, letterSpacing: "0.35em", marginTop: 8 }) }, grade), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: __spreadProps(__spreadValues({}, mono), {
       marginTop: 28,
       padding: "12px 22px",
       border: `1px solid ${C.cyan}`,
@@ -1870,7 +2141,7 @@ function SubspaceTune({ onExit, onComplete }) {
       cursor: "pointer",
       letterSpacing: "0.35em",
       fontSize: 11
-    } }, "\u25C0 EXIT"));
+    }) }, "\u25C0 EXIT"));
   }
   const amplitude = (() => {
     if (dist > window_) return 0.1 + Math.random() * 0.15;
@@ -1894,18 +2165,18 @@ function SubspaceTune({ onExit, onComplete }) {
     height: `${amplitude * 100}%`,
     background: `linear-gradient(to top, ${meterColor}88, ${meterColor}22)`,
     transition: "height 0.12s, background 0.2s"
-  } }), /* @__PURE__ */ React.createElement("div", { style: {
+  } }), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({
     position: "absolute",
     inset: 0,
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    ...mono,
+    justifyContent: "center"
+  }, mono), {
     fontSize: 10,
     color: meterColor,
     letterSpacing: "0.3em",
     textShadow: `0 0 6px ${meterColor}88`
-  } }, "AMP ", Math.round(amplitude * 100))), /* @__PURE__ */ React.createElement(
+  }) }, "AMP ", Math.round(amplitude * 100))), /* @__PURE__ */ React.createElement(
     "div",
     {
       onPointerDown,
@@ -1941,23 +2212,21 @@ function SubspaceTune({ onExit, onComplete }) {
       borderRadius: 1,
       pointerEvents: "none"
     } }),
-    /* @__PURE__ */ React.createElement("div", { style: {
+    /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({
       position: "absolute",
       bottom: 3,
-      left: 6,
-      ...mono,
+      left: 6
+    }, mono), {
       fontSize: 8,
       color: C.textDim,
       letterSpacing: "0.25em"
-    } }, (420 + dial * 380).toFixed(1), " kHz")
-  ), /* @__PURE__ */ React.createElement("div", { style: { height: 38, textAlign: "center", marginTop: 10 } }, result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: {
-    ...mono,
+    }) }, (420 + dial * 380).toFixed(1), " kHz")
+  ), /* @__PURE__ */ React.createElement("div", { style: { height: 38, textAlign: "center", marginTop: 10 } }, result && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
     fontSize: 14,
     color: rc,
     letterSpacing: "0.35em",
     textShadow: `0 0 8px ${rc}88`
-  } }, result.r), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, marginTop: 3 } }, "+", result.p, " pts"))), /* @__PURE__ */ React.createElement("button", { onClick: lock, disabled: !!result, style: {
-    ...mono,
+  }) }, result.r), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.textDim, marginTop: 3 }) }, "+", result.p, " pts"))), /* @__PURE__ */ React.createElement("button", { onClick: lock, disabled: !!result, style: __spreadProps(__spreadValues({}, mono), {
     width: "100%",
     padding: "16px",
     fontSize: 15,
@@ -1969,8 +2238,7 @@ function SubspaceTune({ onExit, onComplete }) {
     cursor: result ? "default" : "pointer",
     textShadow: `0 0 10px ${C.cyan}`,
     animation: result ? "none" : "idle-pulse 2.4s ease-in-out infinite"
-  } }, "\u25C9 LOCK FREQUENCY"), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: {
-    ...mono,
+  }) }, "\u25C9 LOCK FREQUENCY"), /* @__PURE__ */ React.createElement("button", { onClick: onExit, style: __spreadProps(__spreadValues({}, mono), {
     width: "100%",
     marginTop: 8,
     padding: "8px",
@@ -1981,7 +2249,7 @@ function SubspaceTune({ onExit, onComplete }) {
     cursor: "pointer",
     fontSize: 10,
     letterSpacing: "0.3em"
-  } }, "\u25C0 ABORT"));
+  }) }, "\u25C0 ABORT"));
 }
 const DIAGS = [
   { id: "signal", name: "SIGNAL LOCK", desc: "Timing drill \xB7 sensor calibration", icon: "\u25C9", Component: SignalLockGame },
@@ -1993,7 +2261,13 @@ const REACTIONS = [
   // ─── scan reactions ──────────────────────────────
   {
     id: "first-biosign",
-    match: (e, ctx) => e.kind === "scan" && e.data?.mode === "BIO" && !ctx.history.some((h) => h.kind === "scan" && h.data?.mode === "BIO"),
+    match: (e, ctx) => {
+      var _a;
+      return e.kind === "scan" && ((_a = e.data) == null ? void 0 : _a.mode) === "BIO" && !ctx.history.some((h) => {
+        var _a2;
+        return h.kind === "scan" && ((_a2 = h.data) == null ? void 0 : _a2.mode) === "BIO";
+      });
+    },
     delay: 3200,
     respond: () => ({
       type: "ship_message",
@@ -2003,7 +2277,10 @@ const REACTIONS = [
   },
   {
     id: "extreme-risk",
-    match: (e) => e.kind === "scan" && e.data?.risk === "EXTREME",
+    match: (e) => {
+      var _a;
+      return e.kind === "scan" && ((_a = e.data) == null ? void 0 : _a.risk) === "EXTREME";
+    },
     delay: 4500,
     respond: () => ({
       type: "ship_message",
@@ -2013,7 +2290,10 @@ const REACTIONS = [
   },
   {
     id: "high-risk",
-    match: (e) => e.kind === "scan" && e.data?.risk === "HIGH",
+    match: (e) => {
+      var _a;
+      return e.kind === "scan" && ((_a = e.data) == null ? void 0 : _a.risk) === "HIGH";
+    },
     delay: 5e3,
     respond: () => ({
       type: "ship_message",
@@ -2023,7 +2303,10 @@ const REACTIONS = [
   },
   {
     id: "unknown-anomaly",
-    match: (e) => e.kind === "scan" && e.data?.risk === "UNKNOWN",
+    match: (e) => {
+      var _a;
+      return e.kind === "scan" && ((_a = e.data) == null ? void 0 : _a.risk) === "UNKNOWN";
+    },
     delay: 4e3,
     respond: (e) => ({
       type: "ship_message",
@@ -2034,7 +2317,10 @@ const REACTIONS = [
   // ─── diag reactions ──────────────────────────────
   {
     id: "diag-pass",
-    match: (e) => e.kind === "diag" && e.data?.grade === "PASS",
+    match: (e) => {
+      var _a;
+      return e.kind === "diag" && ((_a = e.data) == null ? void 0 : _a.grade) === "PASS";
+    },
     chance: 0.7,
     delay: 3500,
     respond: () => ({
@@ -2045,7 +2331,10 @@ const REACTIONS = [
   },
   {
     id: "decrypt-master",
-    match: (e) => e.kind === "diag" && e.data?.game === "decrypt" && e.data?.best >= 5,
+    match: (e) => {
+      var _a, _b;
+      return e.kind === "diag" && ((_a = e.data) == null ? void 0 : _a.game) === "decrypt" && ((_b = e.data) == null ? void 0 : _b.best) >= 5;
+    },
     delay: 3500,
     respond: () => ({
       type: "ship_message",
@@ -2056,7 +2345,10 @@ const REACTIONS = [
   // ─── medical reactions ───────────────────────────
   {
     id: "med-attention",
-    match: (e) => e.kind === "med" && e.data?.status === "ATTENTION",
+    match: (e) => {
+      var _a;
+      return e.kind === "med" && ((_a = e.data) == null ? void 0 : _a.status) === "ATTENTION";
+    },
     delay: 2800,
     respond: () => ({
       type: "ship_message",
@@ -2066,7 +2358,10 @@ const REACTIONS = [
   },
   {
     id: "med-watch",
-    match: (e) => e.kind === "med" && e.data?.status === "WATCH",
+    match: (e) => {
+      var _a;
+      return e.kind === "med" && ((_a = e.data) == null ? void 0 : _a.status) === "WATCH";
+    },
     delay: 3200,
     chance: 0.6,
     respond: () => ({
@@ -2077,7 +2372,10 @@ const REACTIONS = [
   },
   {
     id: "med-high-stress",
-    match: (e) => e.kind === "med" && e.data?.stress > 0.6,
+    match: (e) => {
+      var _a;
+      return e.kind === "med" && ((_a = e.data) == null ? void 0 : _a.stress) > 0.6;
+    },
     delay: 2500,
     chance: 0.7,
     respond: () => ({
@@ -2100,7 +2398,7 @@ const dispatchEffects = (out, api) => {
   if (!out) return;
   const list = Array.isArray(out) ? out : [out];
   for (const effect of list) {
-    const handler = EFFECT_HANDLERS[effect?.type];
+    const handler = EFFECT_HANDLERS[effect == null ? void 0 : effect.type];
     if (handler) {
       try {
         handler(effect, api);
@@ -2121,9 +2419,12 @@ function CommsView({ messages, onTransmit }) {
     const txt = draft.trim();
     onTransmit(recipient, txt);
     setDraft("");
-    setTimeout(() => inputRef.current?.focus(), 0);
+    setTimeout(() => {
+      var _a;
+      return (_a = inputRef.current) == null ? void 0 : _a.focus();
+    }, 0);
   };
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { maxHeight: "44vh", overflowY: "auto", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "TRANSMISSIONS"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, "\u25C9 LIVE")), messages.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "40px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 11, color: C.textDim, letterSpacing: "0.3em" } }, "\u25EF NO TRANSMISSIONS"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 9, color: C.textFaint, marginTop: 8, letterSpacing: "0.2em" } }, "COMPOSE BELOW TO TRANSMIT")), messages.map((m) => {
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "4px 0" } }, /* @__PURE__ */ React.createElement("div", { style: { maxHeight: "44vh", overflowY: "auto", marginBottom: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "TRANSMISSIONS"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, "\u25C9 LIVE")), messages.length === 0 && /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "40px 10px" } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 11, color: C.textDim, letterSpacing: "0.3em" }) }, "\u25EF NO TRANSMISSIONS"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textFaint, marginTop: 8, letterSpacing: "0.2em" }) }, "COMPOSE BELOW TO TRANSMIT")), messages.map((m) => {
     const outgoing = m.dir === "out";
     const accent = outgoing ? C.cyan : C.amber;
     return /* @__PURE__ */ React.createElement("div", { key: m.id, style: {
@@ -2138,7 +2439,7 @@ function CommsView({ messages, onTransmit }) {
       padding: "10px 12px",
       borderRadius: outgoing ? "4px 0 0 4px" : "0 4px 4px 0",
       animation: m.fresh ? "toast-in 0.35s ease-out" : void 0
-    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 5 } }, /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 10, color: accent, letterSpacing: "0.25em" } }, outgoing ? "\u25B6 TO " : "\u25AE ", outgoing ? m.to || "SHIP" : m.from), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.textDim } }, m.time)), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 11, color: C.text, lineHeight: 1.5 } }, m.txt)));
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 5 } }, /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: accent, letterSpacing: "0.25em" }) }, outgoing ? "\u25B6 TO " : "\u25AE ", outgoing ? m.to || "SHIP" : m.from), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textDim }) }, m.time)), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 11, color: C.text, lineHeight: 1.5 }) }, m.txt)));
   })), /* @__PURE__ */ React.createElement("div", { style: {
     border: `1px solid ${C.line}`,
     borderRadius: 6,
@@ -2155,8 +2456,7 @@ function CommsView({ messages, onTransmit }) {
           audio.play("tick");
           setRecipient(m.id);
         },
-        style: {
-          ...mono,
+        style: __spreadProps(__spreadValues({}, mono), {
           fontSize: 9,
           letterSpacing: "0.25em",
           padding: "5px 9px",
@@ -2166,7 +2466,7 @@ function CommsView({ messages, onTransmit }) {
           borderRadius: 3,
           cursor: "pointer",
           textShadow: active ? `0 0 4px ${C.cyan}66` : "none"
-        }
+        })
       },
       label
     );
@@ -2183,8 +2483,7 @@ function CommsView({ messages, onTransmit }) {
       maxLength: 140,
       autoCorrect: "off",
       spellCheck: false,
-      style: {
-        ...mono,
+      style: __spreadProps(__spreadValues({}, mono), {
         flex: 1,
         minWidth: 0,
         padding: "9px 10px",
@@ -2197,10 +2496,9 @@ function CommsView({ messages, onTransmit }) {
         outline: "none",
         boxSizing: "border-box",
         transition: "border-color 0.15s"
-      }
+      })
     }
-  ), /* @__PURE__ */ React.createElement("button", { onClick: send, disabled: !canSend, style: {
-    ...mono,
+  ), /* @__PURE__ */ React.createElement("button", { onClick: send, disabled: !canSend, style: __spreadProps(__spreadValues({}, mono), {
     fontSize: 10,
     letterSpacing: "0.3em",
     padding: "0 14px",
@@ -2211,12 +2509,38 @@ function CommsView({ messages, onTransmit }) {
     cursor: canSend ? "pointer" : "default",
     textShadow: canSend ? `0 0 6px ${C.cyan}66` : "none",
     whiteSpace: "nowrap"
-  } }, "SEND \u25B6"))));
+  }) }, "SEND \u25B6"))));
 }
-function MissionView({ progress, completed }) {
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "62vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "OBJECTIVES"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, completed.length, " / ", MISSIONS.length, " COMPLETE")), MISSIONS.map((m) => {
+function MissionView({ progress, completed, onReset }) {
+  const [confirmReset, setConfirmReset] = useState(false);
+  const resetTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(resetTimerRef.current), []);
+  const handleReset = () => {
+    if (confirmReset) {
+      clearTimeout(resetTimerRef.current);
+      setConfirmReset(false);
+      onReset == null ? void 0 : onReset();
+    } else {
+      setConfirmReset(true);
+      resetTimerRef.current = setTimeout(() => setConfirmReset(false), 2500);
+    }
+  };
+  const hasState = completed.length > 0 || Object.values(progress || {}).some((v) => (v != null ? v : 0) > 0);
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "62vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "OBJECTIVES"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, completed.length, " / ", MISSIONS.length, " COMPLETE"), hasState && /* @__PURE__ */ React.createElement("button", { onClick: handleReset, style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 8,
+    color: confirmReset ? C.red : C.redDim,
+    letterSpacing: "0.3em",
+    background: "transparent",
+    border: `1px solid ${confirmReset ? C.red : C.line}`,
+    padding: "3px 8px",
+    borderRadius: 3,
+    cursor: "pointer",
+    transition: "all 0.15s",
+    whiteSpace: "nowrap"
+  }) }, confirmReset ? "TAP AGAIN" : "RESET"))), MISSIONS.map((m) => {
+    var _a;
     const done = completed.includes(m.id);
-    const cur = Math.min(progress[m.id] ?? 0, m.target_count);
+    const cur = Math.min((_a = progress[m.id]) != null ? _a : 0, m.target_count);
     const pct = cur / m.target_count * 100;
     const accent = done ? C.green : C.cyan;
     return /* @__PURE__ */ React.createElement("div", { key: m.id, style: {
@@ -2226,13 +2550,12 @@ function MissionView({ progress, completed }) {
       marginBottom: 8,
       background: done ? "rgba(127,200,138,0.06)" : "rgba(0,0,0,0.4)",
       opacity: done ? 0.7 : 1
-    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: {
-      ...mono,
+    } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), {
       fontSize: 11,
       color: accent,
       letterSpacing: "0.25em",
       textShadow: `0 0 4px ${accent}66`
-    } }, done ? "\u2713 " : "\u25B8 ", m.title), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.textDim } }, cur, " / ", m.target_count)), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, lineHeight: 1.4, marginBottom: 8 } }, m.brief), /* @__PURE__ */ React.createElement("div", { style: { height: 3, background: "rgba(0,0,0,0.4)", borderRadius: 2, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
+    }) }, done ? "\u2713 " : "\u25B8 ", m.title), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textDim }) }, cur, " / ", m.target_count)), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.textDim, lineHeight: 1.4, marginBottom: 8 }) }, m.brief), /* @__PURE__ */ React.createElement("div", { style: { height: 3, background: "rgba(0,0,0,0.4)", borderRadius: 2, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("div", { style: {
       height: "100%",
       width: `${pct}%`,
       background: accent,
@@ -2245,9 +2568,9 @@ function MissionView({ progress, completed }) {
     textAlign: "center",
     border: `1px dashed ${C.green}`,
     borderRadius: 4
-  } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.green }, "\u25C9 ALL OBJECTIVES MET"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 9, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" } }, "STANDING BY FOR NEW ASSIGNMENT")));
+  } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.green }, "\u25C9 ALL OBJECTIVES MET"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textDim, marginTop: 6, letterSpacing: "0.2em" }) }, "STANDING BY FOR NEW ASSIGNMENT")));
 }
-function HistoryView({ history, onClear, onResetProfile, onExport }) {
+function HistoryView({ history, onClear, onResetProfile, onExport, themeId, onThemeChange }) {
   const [confirm, setConfirm] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [reportText, setReportText] = useState(null);
@@ -2291,12 +2614,43 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
   const handleReset = () => {
     if (confirmReset) {
       clearTimeout(resetTimerRef.current);
-      onResetProfile?.();
+      onResetProfile == null ? void 0 : onResetProfile();
     } else {
       setConfirmReset(true);
       resetTimerRef.current = setTimeout(() => setConfirmReset(false), 2500);
     }
   };
+  const themePanel = /* @__PURE__ */ React.createElement("div", { style: {
+    marginTop: 18,
+    paddingTop: 12,
+    borderTop: `1px solid ${C.line}`
+  } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.textDim }, "DISPLAY THEME"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textFaint, marginTop: 4, marginBottom: 8, letterSpacing: "0.15em" }) }, "affects colors only \u2014 all functions identical across themes"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, THEME_LIST.map((t) => {
+    const active = t.id === themeId;
+    return /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: t.id,
+        onClick: () => {
+          audio.play("tick");
+          onThemeChange == null ? void 0 : onThemeChange(t.id);
+        },
+        style: __spreadProps(__spreadValues({}, mono), {
+          flex: "1 1 47%",
+          textAlign: "left",
+          padding: "8px 10px",
+          border: `1px solid ${active ? C.cyan : C.line}`,
+          background: active ? `${C.cyan}14` : "transparent",
+          color: active ? C.cyan : C.textDim,
+          borderRadius: 4,
+          cursor: "pointer",
+          textShadow: active ? `0 0 5px ${C.cyan}66` : "none",
+          transition: "all 0.15s"
+        })
+      },
+      /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, letterSpacing: "0.25em" } }, active ? "\u25B8 " : "  ", t.label),
+      /* @__PURE__ */ React.createElement("div", { style: { fontSize: 8, color: C.textFaint, marginTop: 3, letterSpacing: "0.15em" } }, t.subtitle)
+    );
+  })));
   const resetPanel = /* @__PURE__ */ React.createElement("div", { style: {
     marginTop: 18,
     paddingTop: 12,
@@ -2304,8 +2658,7 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center"
-  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.textDim }, "DEVICE PAIRING"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 9, color: C.textFaint, marginTop: 4, letterSpacing: "0.15em" } }, "erases profile + returns to first-launch pairing")), /* @__PURE__ */ React.createElement("button", { onClick: handleReset, style: {
-    ...mono,
+  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.textDim }, "DEVICE PAIRING"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textFaint, marginTop: 4, letterSpacing: "0.15em" }) }, "erases profile + returns to first-launch pairing")), /* @__PURE__ */ React.createElement("button", { onClick: handleReset, style: __spreadProps(__spreadValues({}, mono), {
     fontSize: 8,
     color: confirmReset ? C.red : C.amberDim,
     letterSpacing: "0.3em",
@@ -2316,12 +2669,11 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
     cursor: "pointer",
     transition: "all 0.15s",
     whiteSpace: "nowrap"
-  } }, confirmReset ? "TAP AGAIN" : "RE-PAIR"));
+  }) }, confirmReset ? "TAP AGAIN" : "RE-PAIR"));
   if (history.length === 0) {
-    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "60px 10px 20px" } }, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 11, color: C.textDim, letterSpacing: "0.3em" } }, "\u25EF NO ACTIVITY LOGGED"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 9, color: C.textFaint, marginTop: 8, letterSpacing: "0.2em" } }, "SCANS AND DIAGNOSTICS WILL APPEAR HERE")), resetPanel);
+    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", padding: "60px 10px 20px" } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 11, color: C.textDim, letterSpacing: "0.3em" }) }, "\u25EF NO ACTIVITY LOGGED"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.textFaint, marginTop: 8, letterSpacing: "0.2em" }) }, "SCANS AND DIAGNOSTICS WILL APPEAR HERE")), themePanel, resetPanel);
   }
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "48vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "ACTIVITY LOG \xB7 ", history.length), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: handleExport, style: {
-    ...mono,
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "48vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "ACTIVITY LOG \xB7 ", history.length), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: handleExport, style: __spreadProps(__spreadValues({}, mono), {
     fontSize: 8,
     color: C.cyan,
     letterSpacing: "0.3em",
@@ -2331,8 +2683,7 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
     borderRadius: 3,
     cursor: "pointer",
     transition: "all 0.15s"
-  } }, copyState === "copied" ? "COPIED \u2713" : "EXPORT"), /* @__PURE__ */ React.createElement("button", { onClick: handleClear, style: {
-    ...mono,
+  }) }, copyState === "copied" ? "COPIED \u2713" : "EXPORT"), /* @__PURE__ */ React.createElement("button", { onClick: handleClear, style: __spreadProps(__spreadValues({}, mono), {
     fontSize: 8,
     color: confirm ? C.red : C.redDim,
     letterSpacing: "0.3em",
@@ -2342,35 +2693,33 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
     borderRadius: 3,
     cursor: "pointer",
     transition: "all 0.15s"
-  } }, confirm ? "TAP AGAIN" : "CLEAR"))), history.map((e) => /* @__PURE__ */ React.createElement("div", { key: e.id, style: {
+  }) }, confirm ? "TAP AGAIN" : "CLEAR"))), history.map((e) => /* @__PURE__ */ React.createElement("div", { key: e.id, style: {
     borderLeft: `2px solid ${e.color}`,
     background: "rgba(0,0,0,0.35)",
     padding: "9px 12px",
     marginBottom: 6,
     borderRadius: "0 4px 4px 0"
-  } }, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 8, color: C.textDim, letterSpacing: "0.3em", marginBottom: 4 } }, e.timeStr, " \xB7 ", e.kind.toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 12, color: C.text, lineHeight: 1.3 } }, e.title), /* @__PURE__ */ React.createElement("div", { style: {
-    ...mono,
+  } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textDim, letterSpacing: "0.3em", marginBottom: 4 }) }, e.timeStr, " \xB7 ", e.kind.toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 12, color: C.text, lineHeight: 1.3 }) }, e.title), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
     fontSize: 9,
     color: e.color,
     marginTop: 3,
     letterSpacing: "0.18em",
     textShadow: `0 0 4px ${e.color}44`
-  } }, e.subtitle)))), reportText && /* @__PURE__ */ React.createElement("div", { style: {
+  }) }, e.subtitle)))), reportText && /* @__PURE__ */ React.createElement("div", { style: {
     marginTop: 12,
     padding: 10,
     border: `1px solid ${C.cyan}`,
     borderRadius: 6,
     background: "rgba(0,0,0,0.55)",
     boxShadow: `0 0 12px ${C.cyan}22 inset`
-  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyan }, "FIELD REPORT"), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 8, color: copyState === "copied" ? C.green : C.amber, letterSpacing: "0.25em" } }, copyState === "copied" ? "\u25C9 COPIED TO CLIPBOARD" : "\u25EF SELECT & COPY MANUALLY")), /* @__PURE__ */ React.createElement(
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyan }, "FIELD REPORT"), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: copyState === "copied" ? C.green : C.amber, letterSpacing: "0.25em" }) }, copyState === "copied" ? "\u25C9 COPIED TO CLIPBOARD" : "\u25EF SELECT & COPY MANUALLY")), /* @__PURE__ */ React.createElement(
     "textarea",
     {
       ref: reportTaRef,
       value: reportText,
       readOnly: true,
       onFocus: (e) => e.target.select(),
-      style: {
-        ...mono,
+      style: __spreadProps(__spreadValues({}, mono), {
         width: "100%",
         minHeight: 180,
         maxHeight: 280,
@@ -2386,10 +2735,9 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
         outline: "none",
         resize: "vertical",
         whiteSpace: "pre"
-      }
+      })
     }
-  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: handleExport, style: {
-    ...mono,
+  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: handleExport, style: __spreadProps(__spreadValues({}, mono), {
     flex: 1,
     fontSize: 8,
     padding: "5px",
@@ -2399,11 +2747,10 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
     borderRadius: 3,
     cursor: "pointer",
     letterSpacing: "0.3em"
-  } }, "RE-COPY"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  }) }, "RE-COPY"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
     setReportText(null);
     setCopyState("idle");
-  }, style: {
-    ...mono,
+  }, style: __spreadProps(__spreadValues({}, mono), {
     flex: 1,
     fontSize: 8,
     padding: "5px",
@@ -2413,7 +2760,7 @@ function HistoryView({ history, onClear, onResetProfile, onExport }) {
     borderRadius: 3,
     cursor: "pointer",
     letterSpacing: "0.3em"
-  } }, "DISMISS"))), resetPanel);
+  }) }, "DISMISS"))), themePanel, resetPanel);
 }
 const PROFILE_DEFAULTS = { first: "", last: "", ship: "" };
 const honorificName = (p) => {
@@ -2554,11 +2901,11 @@ function MedicalView({ subject, onAssess }) {
     background: C.panel,
     marginBottom: 10,
     position: "relative"
-  } }, /* @__PURE__ */ React.createElement(Label, { size: 8 }, "SUBJECT"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 16, color: C.text, marginTop: 4, textShadow: `0 0 6px ${C.cyan}33` } }, subject.name), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.cyanDim, marginTop: 4, letterSpacing: "0.15em" } }, subject.species, " \xB7 ", subject.age, " yr \xB7 ", subject.mass, " \xB7 ", subject.blood), /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement(Label, { size: 8 }, "SUBJECT"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 16, color: C.text, marginTop: 4, textShadow: `0 0 6px ${C.cyan}33` }) }, subject.name), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.cyanDim, marginTop: 4, letterSpacing: "0.15em" }) }, subject.species, " \xB7 ", subject.age, " yr \xB7 ", subject.mass, " \xB7 ", subject.blood), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({
     position: "absolute",
     top: 10,
-    right: 10,
-    ...mono,
+    right: 10
+  }, mono), {
     fontSize: 9,
     letterSpacing: "0.25em",
     padding: "3px 8px",
@@ -2566,15 +2913,14 @@ function MedicalView({ subject, onAssess }) {
     color: worst,
     borderRadius: 2,
     textShadow: `0 0 4px ${worst}66`
-  } }, statusText)), /* @__PURE__ */ React.createElement("div", { style: { border: `1px solid ${C.line}`, borderRadius: 6, padding: 8, background: "rgba(0,0,0,0.5)", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "ECG \xB7 LEAD II"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.green }, /* @__PURE__ */ React.createElement(Dot, { color: C.green, blink: true }), " ", bio.hr, " bpm")), /* @__PURE__ */ React.createElement(LiveECG, { hr: bio.hr })), /* @__PURE__ */ React.createElement("div", { style: { border: `1px solid ${C.line}`, borderRadius: 6, padding: 8, background: "rgba(0,0,0,0.5)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "RESPIRATION"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, bio.resp, " /min")), /* @__PURE__ */ React.createElement(LiveResp, { resp: bio.resp })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 } }, vitals.map((v, i) => /* @__PURE__ */ React.createElement(VitalCell, { key: i, k: v[0], v: v[1], color: v[2] }))), /* @__PURE__ */ React.createElement(
+  }) }, statusText)), /* @__PURE__ */ React.createElement("div", { style: { border: `1px solid ${C.line}`, borderRadius: 6, padding: 8, background: "rgba(0,0,0,0.5)", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "ECG \xB7 LEAD II"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.green }, /* @__PURE__ */ React.createElement(Dot, { color: C.green, blink: true }), " ", bio.hr, " bpm")), /* @__PURE__ */ React.createElement(LiveECG, { hr: bio.hr })), /* @__PURE__ */ React.createElement("div", { style: { border: `1px solid ${C.line}`, borderRadius: 6, padding: 8, background: "rgba(0,0,0,0.5)", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "RESPIRATION"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, bio.resp, " /min")), /* @__PURE__ */ React.createElement(LiveResp, { resp: bio.resp })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 } }, vitals.map((v, i) => /* @__PURE__ */ React.createElement(VitalCell, { key: i, k: v[0], v: v[1], color: v[2] }))), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => {
         audio.play("confirm");
-        onAssess?.({ ...bio, status: statusText, statusColor: worst });
+        onAssess == null ? void 0 : onAssess(__spreadProps(__spreadValues({}, bio), { status: statusText, statusColor: worst }));
       },
-      style: {
-        ...mono,
+      style: __spreadProps(__spreadValues({}, mono), {
         width: "100%",
         padding: "14px",
         fontSize: 13,
@@ -2585,7 +2931,7 @@ function MedicalView({ subject, onAssess }) {
         borderRadius: 6,
         cursor: "pointer",
         textShadow: `0 0 8px ${C.cyan}88`
-      }
+      })
     },
     "\u25B2 LOG ASSESSMENT"
   ));
@@ -2594,11 +2940,6 @@ function OnboardingView({ onComplete }) {
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [ship, setShip] = useState("");
-  const [clock, setClock] = useState(/* @__PURE__ */ new Date());
-  useEffect(() => {
-    const id = setInterval(() => setClock(/* @__PURE__ */ new Date()), 1e3);
-    return () => clearInterval(id);
-  }, []);
   const trim = (s) => s.trim();
   const ok = !!(trim(first) && trim(last) && trim(ship));
   const submit = () => {
@@ -2619,8 +2960,7 @@ function OnboardingView({ onComplete }) {
       autoCapitalize: autoCap,
       autoCorrect: "off",
       spellCheck: false,
-      style: {
-        ...mono,
+      style: __spreadProps(__spreadValues({}, mono), {
         width: "100%",
         marginTop: 6,
         padding: "10px 12px",
@@ -2634,7 +2974,7 @@ function OnboardingView({ onComplete }) {
         boxSizing: "border-box",
         textShadow: value.trim() ? `0 0 4px ${C.cyan}55` : "none",
         transition: "border-color 0.2s"
-      }
+      })
     }
   ));
   return /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 380, width: "100%", position: "relative", zIndex: 2 } }, /* @__PURE__ */ React.createElement("div", { style: {
@@ -2644,14 +2984,13 @@ function OnboardingView({ onComplete }) {
     borderBottom: `1px solid ${C.line}`,
     paddingBottom: 8,
     marginBottom: 14
-  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.cyan, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` } }, "MK-VII \xB7 FIELD SCANNER"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 8, color: C.textDim, letterSpacing: "0.25em", marginTop: 2 } }, "S/N 4412-0037 \xB7 FW 2.7.1")), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 9, color: C.amber, letterSpacing: "0.3em" } }, /* @__PURE__ */ React.createElement(Dot, { color: C.amber, blink: true }), " UNPAIRED")), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.amber }, "\u25EF FIRST-LAUNCH PAIRING"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.textDim, marginTop: 8, lineHeight: 1.6 } }, "\u25BA device requires identification before field use", /* @__PURE__ */ React.createElement("br", null), "\u25BA biosignature baseline will be tagged to operator", /* @__PURE__ */ React.createElement("br", null), "\u25BA ship beacon will be registered for comms uplink")), /* @__PURE__ */ React.createElement("div", { style: {
+  } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.cyan, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` }) }, "MK-VII \xB7 FIELD SCANNER"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textDim, letterSpacing: "0.25em", marginTop: 2 }) }, "S/N 4412-0037 \xB7 FW 2.7.1 \xB7 B", typeof window !== "undefined" && window.__BUILD || "?")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.amber, letterSpacing: "0.3em" }) }, /* @__PURE__ */ React.createElement(Dot, { color: C.amber, blink: true }), " UNPAIRED")), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.amber }, "\u25EF FIRST-LAUNCH PAIRING"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.textDim, marginTop: 8, lineHeight: 1.6 }) }, "\u25BA device requires identification before field use", /* @__PURE__ */ React.createElement("br", null), "\u25BA biosignature baseline will be tagged to operator", /* @__PURE__ */ React.createElement("br", null), "\u25BA ship beacon will be registered for comms uplink")), /* @__PURE__ */ React.createElement("div", { style: {
     border: `1px solid ${C.line}`,
     borderRadius: 6,
     padding: "16px 14px",
     background: C.panel,
     marginBottom: 14
-  } }, field("FIRST NAME", first, setFirst, "e.g. Matt"), field("LAST NAME", last, setLast, "e.g. Parks"), field("SHIP NAME", ship, setShip, "e.g. USS Copernicus", "characters")), /* @__PURE__ */ React.createElement("button", { onClick: submit, disabled: !ok, style: {
-    ...mono,
+  } }, field("FIRST NAME", first, setFirst, "e.g. Matt"), field("LAST NAME", last, setLast, "e.g. Parks"), field("SHIP NAME", ship, setShip, "e.g. USS Copernicus", "characters")), /* @__PURE__ */ React.createElement("button", { onClick: submit, disabled: !ok, style: __spreadProps(__spreadValues({}, mono), {
     width: "100%",
     padding: "16px",
     fontSize: 15,
@@ -2665,7 +3004,7 @@ function OnboardingView({ onComplete }) {
     animation: ok ? "idle-pulse 2.4s ease-in-out infinite" : "none",
     opacity: ok ? 1 : 0.6,
     transition: "all 0.2s"
-  } }, "\u25C9 PAIR DEVICE"), /* @__PURE__ */ React.createElement("div", { style: {
+  }) }, "\u25C9 PAIR DEVICE"), /* @__PURE__ */ React.createElement("div", { style: {
     marginTop: 18,
     fontSize: 9,
     color: C.textDim,
@@ -2674,16 +3013,237 @@ function OnboardingView({ onComplete }) {
     display: "flex",
     justifyContent: "space-between",
     letterSpacing: "0.25em"
-  } }, /* @__PURE__ */ React.createElement("span", null, "STATUS ", /* @__PURE__ */ React.createElement("span", { style: { color: C.amber } }, "AWAITING INPUT")), /* @__PURE__ */ React.createElement("span", null, clock.toTimeString().slice(0, 8))));
+  } }, /* @__PURE__ */ React.createElement("span", null, "STATUS ", /* @__PURE__ */ React.createElement("span", { style: { color: C.amber } }, "AWAITING INPUT")), /* @__PURE__ */ React.createElement("span", null, "SD ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyanDim } }, stardate()))));
+}
+const BOOT_SCRIPT = [
+  // act 1 — cold start
+  { at: 0, kind: "flash", color: "white", dur: 80 },
+  { at: 0, kind: "header", text: "MK-VII", sound: "boot" },
+  { at: 250, kind: "line", text: "\u25B8 cpu0  ARM-c64       online", color: "dim" },
+  { at: 320, kind: "line", text: "\u25B8 cpu1  ARM-c64       online", color: "dim" },
+  { at: 380, kind: "line", text: "\u25B8 ram   8.0 GiB ECC   verified", color: "dim" },
+  { at: 460, kind: "line", text: "\u25B8 pmic  rails nominal \xB7 3v3/1v8/0v9", color: "dim" },
+  { at: 540, kind: "line", text: "\u25B8 rtc   chronometer locked", color: "dim", sound: "tick" },
+  // act 2 — kernel + diagnostics with progress bar
+  { at: 700, kind: "header", text: "DIAGNOSTICS", sound: "tick" },
+  { at: 720, kind: "progress", to: 22, dur: 350 },
+  { at: 800, kind: "line", text: "\u25B8 kernel  mk7-rtos / 64-bit  \xB7 loaded", sound: "tick" },
+  { at: 960, kind: "line", text: "\u25B8 probing sensor bus..." },
+  {
+    at: 1280,
+    kind: "line",
+    text: "\u25B8 found  bio \xB7 geo \xB7 atmo \xB7 em \xB7 opt",
+    color: "ok",
+    sound: "tick"
+  },
+  // act 3 — fake warning that resolves
+  { at: 1900, kind: "warn", text: "\u26A0 em-array  drift +0.18%  \xB7 recalibrating" },
+  { at: 1920, kind: "progress", to: 48, dur: 500 },
+  {
+    at: 2400,
+    kind: "line",
+    text: "\u25B8 em-array  drift  \xB7 \u03B5=0.004  \xB7 pass",
+    color: "ok",
+    sound: "confirm"
+  },
+  // act 4 — subsystem checklist with rapid checks
+  { at: 2650, kind: "header", text: "SUBSYSTEMS" },
+  { at: 2700, kind: "line", text: "\u25B8 bio       online", color: "ok" },
+  { at: 2780, kind: "line", text: "\u25B8 geo       online", color: "ok" },
+  { at: 2860, kind: "line", text: "\u25B8 atmo      online", color: "ok" },
+  { at: 2940, kind: "line", text: "\u25B8 em        online", color: "ok" },
+  { at: 3020, kind: "line", text: "\u25B8 optical   stand-by", color: "ok", sound: "tick" },
+  { at: 3120, kind: "progress", to: 74, dur: 400 },
+  { at: 3200, kind: "line", text: "\u25B8 audio  synth bus engaged", color: "ok", sound: "glyph" },
+  // act 5 — comms link / stardate / biosig
+  { at: 3500, kind: "header", text: "LINK \xB7 BIOSIG \xB7 WAKE" },
+  { at: 3580, kind: "line", text: "\u25B8 subspace acquiring...", sound: "incoming" },
+  { at: 4e3, kind: "line", text: "\u25B8 subspace link  \xB7 ESTABLISHED", color: "ok" },
+  { at: 4150, kind: "line", text: "\u25B8 stardate ${SD}  \xB7 synced", sound: "tick" },
+  { at: 4350, kind: "line", text: "\u25B8 biosig key  \xB7 loaded", sound: "tick" },
+  { at: 4500, kind: "progress", to: 100, dur: 350 },
+  // wake
+  { at: 5e3, kind: "flash", color: "cyan", dur: 280 },
+  { at: 5050, kind: "line", text: "\u25B8 READY", color: "ready", sound: "lock" }
+];
+function BootSequence({ onComplete }) {
+  const [events, setEvents] = useState([]);
+  const [progress, setProgress] = useState(0);
+  const [flash, setFlash] = useState(null);
+  const [skippable, setSkippable] = useState(false);
+  const cancelRef = useRef(false);
+  const progressRef = useRef(0);
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
+  useEffect(() => {
+    cancelRef.current = false;
+    const skipT = setTimeout(() => setSkippable(true), 800);
+    const sd = stardate();
+    const animateProgress = (target, dur) => {
+      const start = Date.now();
+      const startVal = progressRef.current;
+      const tick = () => {
+        if (cancelRef.current) return;
+        const t = Math.min(1, (Date.now() - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const value = startVal + (target - startVal) * eased;
+        progressRef.current = value;
+        setProgress(value);
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    };
+    const timers = BOOT_SCRIPT.map((evt, idx) => setTimeout(() => {
+      if (cancelRef.current) return;
+      if (evt.kind === "flash") {
+        setFlash({ color: evt.color, dur: evt.dur });
+        setTimeout(() => setFlash(null), evt.dur);
+        return;
+      }
+      if (evt.kind === "progress") {
+        animateProgress(evt.to, evt.dur);
+        return;
+      }
+      const text = (evt.text || "").replace("${SD}", sd);
+      setEvents((prev) => [...prev, __spreadProps(__spreadValues({}, evt), { text, id: `${idx}-${evt.kind}` })]);
+      if (evt.sound) audio.play(evt.sound);
+    }, evt.at));
+    const lastAt = BOOT_SCRIPT[BOOT_SCRIPT.length - 1].at;
+    const completeT = setTimeout(() => {
+      var _a;
+      if (!cancelRef.current) (_a = onCompleteRef.current) == null ? void 0 : _a.call(onCompleteRef);
+    }, lastAt + 800);
+    return () => {
+      cancelRef.current = true;
+      clearTimeout(skipT);
+      clearTimeout(completeT);
+      timers.forEach(clearTimeout);
+    };
+  }, []);
+  const skip = () => {
+    var _a;
+    if (skippable) (_a = onCompleteRef.current) == null ? void 0 : _a.call(onCompleteRef);
+  };
+  const resolveColor = (token) => {
+    if (token === "ok") return C.green;
+    if (token === "warn") return C.amber;
+    if (token === "ready") return C.cyan;
+    if (token === "dim") return C.cyanDim;
+    return C.cyanDim;
+  };
+  return /* @__PURE__ */ React.createElement("div", { onClick: skip, style: {
+    maxWidth: 380,
+    width: "100%",
+    position: "relative",
+    zIndex: 2,
+    cursor: skippable ? "pointer" : "default",
+    paddingTop: 18
+  } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 8,
+    color: C.cyan,
+    lineHeight: 1.05,
+    textShadow: `0 0 8px ${C.cyan}66`,
+    marginBottom: 6,
+    whiteSpace: "pre"
+  }) }, `  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+  \u2551   M K - V I I  \xB7  F I E L D      \u2551
+  \u2551      S C A N N E R   \u25C9           \u2551
+  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D`), /* @__PURE__ */ React.createElement("div", { style: {
+    height: 12,
+    marginBottom: 10,
+    border: `1px solid ${C.line}`,
+    borderRadius: 2,
+    background: "rgba(0,0,0,0.5)",
+    position: "relative",
+    overflow: "hidden"
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    height: "100%",
+    width: `${progress}%`,
+    background: `linear-gradient(to right, ${C.cyan}55, ${C.cyan}aa)`,
+    boxShadow: `0 0 8px ${C.cyan}88, inset 0 0 6px ${C.cyan}aa`,
+    transition: "width 0.06s linear"
+  } }), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }, mono), {
+    fontSize: 8,
+    color: C.cyan,
+    letterSpacing: "0.3em",
+    textShadow: `0 0 4px ${C.cyan}aa`,
+    mixBlendMode: "screen"
+  }) }, Math.round(progress).toString().padStart(3, "0"), "%")), /* @__PURE__ */ React.createElement("div", { style: {
+    border: `1px solid ${C.line}`,
+    borderRadius: 6,
+    background: "rgba(0,0,0,0.55)",
+    padding: 12,
+    minHeight: 256,
+    fontSize: 10,
+    lineHeight: 1.6
+  } }, events.map((e) => {
+    if (e.kind === "header") {
+      return /* @__PURE__ */ React.createElement("div", { key: e.id, className: "log-line", style: __spreadProps(__spreadValues({}, mono), {
+        color: C.cyan,
+        fontSize: 10,
+        letterSpacing: "0.4em",
+        marginTop: 8,
+        marginBottom: 4,
+        textShadow: `0 0 6px ${C.cyan}88`,
+        fontWeight: 600
+      }) }, "\u2500\u2500 ", e.text, " \u2500\u2500");
+    }
+    if (e.kind === "warn") {
+      return /* @__PURE__ */ React.createElement("div", { key: e.id, className: "log-line", style: __spreadProps(__spreadValues({}, mono), {
+        color: C.amber,
+        whiteSpace: "pre-wrap",
+        textShadow: `0 0 4px ${C.amber}66`,
+        animation: "blink 0.6s ease-in-out 2"
+      }) }, e.text);
+    }
+    return /* @__PURE__ */ React.createElement("div", { key: e.id, className: "log-line", style: __spreadProps(__spreadValues({}, mono), {
+      color: resolveColor(e.color),
+      whiteSpace: "pre-wrap",
+      textShadow: e.color === "ready" ? `0 0 8px ${C.cyan}aa` : e.color === "ok" ? `0 0 3px ${C.green}55` : "none",
+      fontSize: e.color === "ready" ? 14 : 10,
+      letterSpacing: e.color === "ready" ? "0.4em" : 0,
+      marginTop: e.color === "ready" ? 6 : 0
+    }) }, e.text);
+  }), progress < 100 && /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { color: C.cyan, animation: "blink 0.7s infinite" }) }, "\u25AE")), flash && /* @__PURE__ */ React.createElement("div", { style: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 100,
+    background: flash.color === "white" ? "rgba(255,255,255,0.85)" : `${C.cyan}88`,
+    pointerEvents: "none",
+    animation: `boot-flash ${flash.dur}ms ease-out forwards`
+  } }), skippable && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 8,
+    color: C.textFaint,
+    letterSpacing: "0.3em",
+    textAlign: "center",
+    marginTop: 14
+  }) }, "TAP TO SKIP"), /* @__PURE__ */ React.createElement("style", null, `
+        @keyframes boot-flash {
+          0%   { opacity: 1 }
+          100% { opacity: 0 }
+        }
+      `));
 }
 function Tricorder() {
+  var _a;
   const [profile, setProfile] = useState(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [booted, setBooted] = useState(false);
+  const completeBoot = () => setBooted(true);
   useEffect(() => {
     (async () => {
+      var _a2, _b;
       try {
-        const res = await window.storage?.get?.("profile");
-        if (res?.value) {
+        const res = await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.get) == null ? void 0 : _b.call(_a2, "profile"));
+        if (res == null ? void 0 : res.value) {
           const p = JSON.parse(res.value);
           if (p && p.first && p.last && p.ship) setProfile(p);
         }
@@ -2693,18 +3253,34 @@ function Tricorder() {
     })();
   }, []);
   const completeOnboarding = async (p) => {
+    var _a2, _b;
     try {
-      await window.storage?.set?.("profile", JSON.stringify(p));
+      await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.set) == null ? void 0 : _b.call(_a2, "profile", JSON.stringify(p)));
     } catch (_) {
     }
     setProfile(p);
   };
   const resetProfile = async () => {
+    var _a2, _b;
     try {
-      await window.storage?.delete?.("profile");
+      await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.delete) == null ? void 0 : _b.call(_a2, "profile"));
     } catch (_) {
     }
+    geoTriedRef.current = false;
+    setCoords(null);
+    setGeoState("idle");
     setProfile(null);
+  };
+  const resetMissions = async () => {
+    var _a2, _b, _c, _d;
+    setMissionProgress({});
+    setCompletedMissions([]);
+    try {
+      await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.delete) == null ? void 0 : _b.call(_a2, "missions"));
+      await ((_d = (_c = window.storage) == null ? void 0 : _c.delete) == null ? void 0 : _d.call(_c, "missions_done"));
+    } catch (_) {
+    }
+    audio.play("confirm");
   };
   const medSubject = profile ? medSubjectFor(profile) : null;
   const [view, setView] = useState("scan");
@@ -2728,7 +3304,25 @@ function Tricorder() {
   const sessionStartRef = useRef(Date.now());
   const sessionMs = clock.getTime() - sessionStartRef.current;
   const [coords, setCoords] = useState(null);
+  const [geoState, setGeoState] = useState("idle");
   const geoTriedRef = useRef(false);
+  const requestGeo = () => {
+    if (!navigator.geolocation) {
+      setGeoState("unavailable");
+      return;
+    }
+    setGeoState("locating");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        setGeoState("ok");
+      },
+      (err) => {
+        setGeoState(err && err.code === 1 ? "denied" : err && err.code === 3 ? "timeout" : "unavailable");
+      },
+      { enableHighAccuracy: false, timeout: 8e3, maximumAge: 6e5 }
+    );
+  };
   const [realEnv, setRealEnv] = useState(null);
   const env = realEnv || currentEnvironment(sessionMs);
   const [battery, setBattery] = useState(87);
@@ -2760,9 +3354,10 @@ function Tricorder() {
   const mutedHydratedRef = useRef(false);
   useEffect(() => {
     (async () => {
+      var _a2, _b;
       try {
-        const res = await window.storage?.get?.("history");
-        if (res?.value) setHistory(JSON.parse(res.value));
+        const res = await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.get) == null ? void 0 : _b.call(_a2, "history"));
+        if (res == null ? void 0 : res.value) setHistory(JSON.parse(res.value));
       } catch (_) {
       }
       hydratedRef.current = true;
@@ -2771,17 +3366,19 @@ function Tricorder() {
   useEffect(() => {
     if (!hydratedRef.current) return;
     (async () => {
+      var _a2, _b;
       try {
-        await window.storage?.set?.("history", JSON.stringify(history));
+        await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.set) == null ? void 0 : _b.call(_a2, "history", JSON.stringify(history)));
       } catch (_) {
       }
     })();
   }, [history]);
   useEffect(() => {
     (async () => {
+      var _a2, _b;
       try {
-        const res = await window.storage?.get?.("muted");
-        if (res?.value === "true") setMuted(true);
+        const res = await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.get) == null ? void 0 : _b.call(_a2, "muted"));
+        if ((res == null ? void 0 : res.value) === "true") setMuted(true);
       } catch (_) {
       }
       mutedHydratedRef.current = true;
@@ -2791,17 +3388,43 @@ function Tricorder() {
     audio.setMuted(muted);
     if (!mutedHydratedRef.current) return;
     (async () => {
+      var _a2, _b;
       try {
-        await window.storage?.set?.("muted", String(muted));
+        await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.set) == null ? void 0 : _b.call(_a2, "muted", String(muted)));
       } catch (_) {
       }
     })();
   }, [muted]);
+  const [themeId, setThemeId] = useState("tactical");
+  const themeHydratedRef = useRef(false);
   useEffect(() => {
     (async () => {
+      var _a2, _b;
       try {
-        const res = await window.storage?.get?.("battery");
-        if (res?.value) {
+        const res = await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.get) == null ? void 0 : _b.call(_a2, "theme"));
+        if ((res == null ? void 0 : res.value) && THEMES[res.value]) setThemeId(res.value);
+      } catch (_) {
+      }
+      themeHydratedRef.current = true;
+    })();
+  }, []);
+  useEffect(() => {
+    applyTheme(themeId);
+    if (!themeHydratedRef.current) return;
+    (async () => {
+      var _a2, _b;
+      try {
+        await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.set) == null ? void 0 : _b.call(_a2, "theme", themeId));
+      } catch (_) {
+      }
+    })();
+  }, [themeId]);
+  useEffect(() => {
+    (async () => {
+      var _a2, _b;
+      try {
+        const res = await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.get) == null ? void 0 : _b.call(_a2, "battery"));
+        if (res == null ? void 0 : res.value) {
           const v = parseFloat(res.value);
           if (!isNaN(v)) setBattery(v);
         }
@@ -2813,19 +3436,21 @@ function Tricorder() {
   useEffect(() => {
     if (!batteryHydratedRef.current) return;
     (async () => {
+      var _a2, _b;
       try {
-        await window.storage?.set?.("battery", String(battery));
+        await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.set) == null ? void 0 : _b.call(_a2, "battery", String(battery)));
       } catch (_) {
       }
     })();
   }, [battery]);
   useEffect(() => {
     (async () => {
+      var _a2, _b, _c, _d;
       try {
-        const a = await window.storage?.get?.("missions");
-        const b = await window.storage?.get?.("missions_done");
-        if (a?.value) setMissionProgress(JSON.parse(a.value));
-        if (b?.value) setCompletedMissions(JSON.parse(b.value));
+        const a = await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.get) == null ? void 0 : _b.call(_a2, "missions"));
+        const b = await ((_d = (_c = window.storage) == null ? void 0 : _c.get) == null ? void 0 : _d.call(_c, "missions_done"));
+        if (a == null ? void 0 : a.value) setMissionProgress(JSON.parse(a.value));
+        if (b == null ? void 0 : b.value) setCompletedMissions(JSON.parse(b.value));
       } catch (_) {
       }
       missionHydratedRef.current = true;
@@ -2834,9 +3459,10 @@ function Tricorder() {
   useEffect(() => {
     if (!missionHydratedRef.current) return;
     (async () => {
+      var _a2, _b, _c, _d;
       try {
-        await window.storage?.set?.("missions", JSON.stringify(missionProgress));
-        await window.storage?.set?.("missions_done", JSON.stringify(completedMissions));
+        await ((_b = (_a2 = window.storage) == null ? void 0 : _a2.set) == null ? void 0 : _b.call(_a2, "missions", JSON.stringify(missionProgress)));
+        await ((_d = (_c = window.storage) == null ? void 0 : _c.set) == null ? void 0 : _d.call(_c, "missions_done", JSON.stringify(completedMissions)));
       } catch (_) {
       }
     })();
@@ -2844,13 +3470,7 @@ function Tricorder() {
   useEffect(() => {
     if (!profile || geoTriedRef.current) return;
     geoTriedRef.current = true;
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      () => {
-      },
-      { enableHighAccuracy: false, timeout: 8e3, maximumAge: 6e5 }
-    );
+    requestGeo();
   }, [profile]);
   useEffect(() => {
     if (!coords) return;
@@ -2892,6 +3512,44 @@ function Tricorder() {
       }
     }
   }, [battery]);
+  const fullscreenSupported = (() => {
+    if (typeof document === "undefined") return false;
+    const el = document.documentElement;
+    return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+  })();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    if (!fullscreenSupported) return;
+    const onChange = () => {
+      setIsFullscreen(!!(document.fullscreenElement || document.webkitFullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    document.addEventListener("webkitfullscreenchange", onChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      document.removeEventListener("webkitfullscreenchange", onChange);
+    };
+  }, [fullscreenSupported]);
+  const toggleFullscreen = () => {
+    if (!fullscreenSupported) return;
+    const doc = document;
+    const el = document.documentElement;
+    if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req) {
+        const result = req.call(el);
+        if (result && result.catch) result.catch(() => {
+        });
+      }
+    } else {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen;
+      if (exit) {
+        const result = exit.call(doc);
+        if (result && result.catch) result.catch(() => {
+        });
+      }
+    }
+  };
   const startDocking = () => {
     if (docking) return;
     dockTimerRef.current = setTimeout(() => {
@@ -2919,7 +3577,7 @@ function Tricorder() {
   }, [docking]);
   const pushMsg = (msg) => {
     const dir = msg.dir || "in";
-    const entry = { ...msg, dir, time: nowTime(), id: Date.now() + Math.random(), fresh: true };
+    const entry = __spreadProps(__spreadValues({}, msg), { dir, time: nowTime(), id: Date.now() + Math.random(), fresh: true });
     setMessages((p) => [entry, ...p].slice(0, 40));
     if (dir === "in") {
       audio.play("incoming");
@@ -2930,7 +3588,7 @@ function Tricorder() {
         toastTimerRef.current = setTimeout(() => setToast(null), 3800);
       }
     }
-    setTimeout(() => setMessages((p) => p.map((m) => m.id === entry.id ? { ...m, fresh: false } : m)), 500);
+    setTimeout(() => setMessages((p) => p.map((m) => m.id === entry.id ? __spreadProps(__spreadValues({}, m), { fresh: false }) : m)), 500);
   };
   const transmit = (recipientId, txt) => {
     const member = getTeamMember(recipientId);
@@ -2942,18 +3600,18 @@ function Tricorder() {
     const delay = 1800 + Math.random() * 2400;
     setTimeout(() => {
       const reply = replyFor(recipientId, txt);
-      if (reply) pushMsg({ dir: "in", ...reply });
+      if (reply) pushMsg(__spreadValues({ dir: "in" }, reply));
     }, delay);
   };
   const logEntry = (entry) => {
-    const enriched = {
-      ...entry,
+    var _a2, _b, _c;
+    const enriched = __spreadProps(__spreadValues({}, entry), {
       id: Date.now() + Math.random(),
       ts: Date.now(),
       timeStr: nowTime()
-    };
+    });
     if (entry.kind === "diag") {
-      const game2 = entry.data?.game;
+      const game2 = (_a2 = entry.data) == null ? void 0 : _a2.game;
       if (game2 === "signal") drainBattery(chargeFor("diag_signal"));
       else if (game2 === "decrypt") drainBattery(chargeFor("diag_decrypt"));
       else if (game2 === "subspace") drainBattery(chargeFor("diag_subspace"));
@@ -2970,8 +3628,8 @@ function Tricorder() {
         continue;
       }
       if (!fires) continue;
-      if (Math.random() >= (reaction.chance ?? 1)) continue;
-      const delay = reaction.delay ?? 0;
+      if (Math.random() >= ((_b = reaction.chance) != null ? _b : 1)) continue;
+      const delay = (_c = reaction.delay) != null ? _c : 0;
       setTimeout(() => {
         try {
           const out = reaction.respond(enriched, ctx);
@@ -2981,13 +3639,14 @@ function Tricorder() {
       }, delay);
     }
     setMissionProgress((prev) => {
-      const next = { ...prev };
+      var _a3, _b2;
+      const next = __spreadValues({}, prev);
       let anyComplete = null;
       for (const m of MISSIONS) {
         if (completedMissions.includes(m.id)) continue;
-        const matches = m.matchEntry ? m.matchEntry(enriched) : enriched.kind === m.target_kind && (!m.target_mode || enriched.data?.mode === m.target_mode);
+        const matches = m.matchEntry ? m.matchEntry(enriched) : enriched.kind === m.target_kind && (!m.target_mode || ((_a3 = enriched.data) == null ? void 0 : _a3.mode) === m.target_mode);
         if (!matches) continue;
-        const cur = (next[m.id] ?? 0) + 1;
+        const cur = ((_b2 = next[m.id]) != null ? _b2 : 0) + 1;
         next[m.id] = cur;
         if (cur >= m.target_count) anyComplete = m;
       }
@@ -3093,9 +3752,8 @@ function Tricorder() {
   const timeStr = stardate(clock);
   const statusLeft = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, mode)) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "MED")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "DIAG")) : view === "mission" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "MSN")) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "COMMS")) : /* @__PURE__ */ React.createElement(React.Fragment, null, "MODE ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyan } }, "LOG"));
   const statusCenter = view === "scan" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SCAN  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "#", String(scanCount).padStart(4, "0"))) : view === "med" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "SUBJ  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, "SELF")) : view === "diag" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "DRILL ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, game ? "ACTIVE" : "IDLE")) : view === "mission" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "OBJ   ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, completedMissions.length, "/", MISSIONS.length)) : view === "comms" ? /* @__PURE__ */ React.createElement(React.Fragment, null, "MSGS  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(messages.length).padStart(3, "0"))) : /* @__PURE__ */ React.createElement(React.Fragment, null, "ENTR  ", /* @__PURE__ */ React.createElement("span", { style: { color: C.text } }, String(history.length).padStart(3, "0")));
-  const ActiveDiag = game ? getDiag(game)?.Component : null;
-  const outerShell = (children) => /* @__PURE__ */ React.createElement("div", { style: {
-    ...mono,
+  const ActiveDiag = game ? (_a = getDiag(game)) == null ? void 0 : _a.Component : null;
+  const outerShell = (children) => /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
     minHeight: "100vh",
     background: `radial-gradient(ellipse at 30% 20%, #0a1518 0%, ${C.bg} 60%, #000 100%)`,
     color: C.text,
@@ -3104,7 +3762,7 @@ function Tricorder() {
     justifyContent: "center",
     position: "relative",
     overflow: "hidden"
-  } }, /* @__PURE__ */ React.createElement("div", { style: {
+  }) }, /* @__PURE__ */ React.createElement("div", { style: {
     position: "absolute",
     inset: 0,
     pointerEvents: "none",
@@ -3124,6 +3782,7 @@ function Tricorder() {
         }
       `), children);
   if (!profileLoaded) return outerShell(null);
+  if (!booted) return outerShell(/* @__PURE__ */ React.createElement(BootSequence, { onComplete: completeBoot }));
   if (!profile) return outerShell(/* @__PURE__ */ React.createElement(OnboardingView, { onComplete: completeOnboarding }));
   return outerShell(
     /* @__PURE__ */ React.createElement("div", { style: { maxWidth: 380, width: "100%", position: "relative", zIndex: 2 } }, /* @__PURE__ */ React.createElement("div", { style: {
@@ -3133,13 +3792,31 @@ function Tricorder() {
       borderBottom: `1px solid ${C.line}`,
       paddingBottom: 8,
       marginBottom: 10
-    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.cyan, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` } }, profile.ship.toUpperCase(), " \xB7 MK-VII"), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 8, color: C.textDim, letterSpacing: "0.25em", marginTop: 2 } }, "OP \xB7 ", profile.last.toUpperCase(), ", ", (profile.first.charAt(0) || "").toUpperCase(), ". \xB7 FW 2.7.1")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "flex-end" } }, /* @__PURE__ */ React.createElement(
+    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.cyan, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` }) }, profile.ship.toUpperCase(), " \xB7 MK-VII"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textDim, letterSpacing: "0.25em", marginTop: 2 }) }, "OP ", profile.last.toUpperCase(), ", ", (profile.first.charAt(0) || "").toUpperCase(), ". \xB7", " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyanDim } }, "SD ", stardate(clock)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } }, fullscreenSupported && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        onClick: toggleFullscreen,
+        title: isFullscreen ? "exit fullscreen" : "enter fullscreen",
+        style: __spreadProps(__spreadValues({}, mono), {
+          fontSize: 11,
+          padding: "2px 6px",
+          lineHeight: 1,
+          border: `1px solid ${isFullscreen ? C.cyan : C.line}`,
+          background: "transparent",
+          color: isFullscreen ? C.cyan : C.textDim,
+          borderRadius: 3,
+          cursor: "pointer",
+          textShadow: isFullscreen ? `0 0 4px ${C.cyan}66` : "none",
+          letterSpacing: 0
+        })
+      },
+      isFullscreen ? "\u25AB" : "\u26F6"
+    ), /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: () => setMuted((v) => !v),
         title: muted ? "sound off \u2014 tap to enable" : "sound on \u2014 tap to mute",
-        style: {
-          ...mono,
+        style: __spreadProps(__spreadValues({}, mono), {
           fontSize: 11,
           padding: "2px 6px",
           lineHeight: 1,
@@ -3150,7 +3827,7 @@ function Tricorder() {
           cursor: "pointer",
           textShadow: muted ? "none" : `0 0 4px ${C.cyan}66`,
           letterSpacing: 0
-        }
+        })
       },
       muted ? "\u2715" : "\u266A"
     ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 2, alignItems: "flex-end" } }, [1, 2, 3, 4].map((i) => /* @__PURE__ */ React.createElement("div", { key: i, style: {
@@ -3169,14 +3846,13 @@ function Tricorder() {
           onPointerLeave: cancelDocking,
           onPointerCancel: cancelDocking,
           title: "long-press to dock & recharge",
-          style: {
-            ...mono,
+          style: __spreadProps(__spreadValues({}, mono), {
             fontSize: 9,
             color: col,
             cursor: "pointer",
             userSelect: "none",
             textShadow: docking ? `0 0 6px ${col}88` : "none"
-          }
+          })
         },
         /* @__PURE__ */ React.createElement(Dot, { color: col, blink: docking }),
         pct,
@@ -3202,17 +3878,18 @@ function Tricorder() {
       alignItems: "center",
       gap: 8,
       flexWrap: "wrap"
-    } }, /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.3em" } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color, blink: env.interference >= 14 }), " ", env.label, env.real && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 8, color: env.color, opacity: 0.6, letterSpacing: "0.15em" } }, "\xB7 ", env.temp != null ? `${Math.round(env.temp)}\xB0C` : "", env.wind != null ? ` \xB7 ${Math.round(env.wind)} km/h` : "")), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: env.color, letterSpacing: "0.2em" } }, "INTERFERENCE +", env.interference, "%")), (() => {
+    } }, /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: env.color, letterSpacing: "0.3em" }) }, /* @__PURE__ */ React.createElement(Dot, { color: env.color, blink: env.interference >= 14 }), " ", env.label, env.real && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 8, color: env.color, opacity: 0.6, letterSpacing: "0.15em" } }, "\xB7 ", env.temp != null ? `${Math.round(env.temp)}\xB0C` : "", env.wind != null ? ` \xB7 ${Math.round(env.wind)} km/h` : "")), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: env.color, letterSpacing: "0.2em" }) }, "INTERFERENCE +", env.interference, "%")), (() => {
+      var _a2;
       const active = MISSIONS.find((m) => !completedMissions.includes(m.id));
       if (!active) return null;
-      const cur = Math.min(missionProgress[active.id] ?? 0, active.target_count);
+      const cur = Math.min((_a2 = missionProgress[active.id]) != null ? _a2 : 0, active.target_count);
       return /* @__PURE__ */ React.createElement("div", { style: {
         border: `1px dashed ${C.cyanDim}`,
         borderRadius: 4,
         padding: "6px 10px",
         marginBottom: 10,
         background: "rgba(0,0,0,0.3)"
-      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.cyanDim, letterSpacing: "0.3em" } }, "\u25B8 OBJECTIVE"), /* @__PURE__ */ React.createElement("span", { style: { ...mono, fontSize: 9, color: C.cyan } }, cur, " / ", active.target_count)), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.text, lineHeight: 1.3 } }, active.brief));
+      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 3 } }, /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.cyanDim, letterSpacing: "0.3em" }) }, "\u25B8 OBJECTIVE"), /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 9, color: C.cyan }) }, cur, " / ", active.target_count)), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.text, lineHeight: 1.3 }) }, active.brief));
     })(), /* @__PURE__ */ React.createElement("div", { style: {
       border: `1px solid ${sample ? C.cyan : C.line}`,
       borderRadius: 6,
@@ -3223,11 +3900,11 @@ function Tricorder() {
       position: "relative",
       boxShadow: sample ? `0 0 14px ${C.cyan}22 inset` : "none",
       transition: "all 0.3s"
-    } }, /* @__PURE__ */ React.createElement(Label, { size: 8 }, "SUBJECT"), sample ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 18, color: C.text, marginTop: 4, textShadow: `0 0 8px ${C.cyan}44` } }, sample.subject), /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 10, color: C.cyanDim, marginTop: 4, letterSpacing: "0.15em" } }, sample.spec)) : scanning ? /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 14, color: C.amber, marginTop: 8, animation: "blink 0.7s infinite" } }, "\u25C9 ACQUIRING TARGET\u2026") : /* @__PURE__ */ React.createElement("div", { style: { ...mono, fontSize: 14, color: C.textDim, marginTop: 8 } }, "\u25EF STANDBY \u2014 AWAITING SCAN"), sample && /* @__PURE__ */ React.createElement("div", { style: {
+    } }, /* @__PURE__ */ React.createElement(Label, { size: 8 }, "SUBJECT"), sample ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 18, color: C.text, marginTop: 4, textShadow: `0 0 8px ${C.cyan}44` }) }, sample.subject), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.cyanDim, marginTop: 4, letterSpacing: "0.15em" }) }, sample.spec)) : scanning ? /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 14, color: C.amber, marginTop: 8, animation: "blink 0.7s infinite" }) }, "\u25C9 ACQUIRING TARGET\u2026") : /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 14, color: C.textDim, marginTop: 8 }) }, "\u25EF STANDBY \u2014 AWAITING SCAN"), sample && /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({
       position: "absolute",
       top: 10,
-      right: 10,
-      ...mono,
+      right: 10
+    }, mono), {
       fontSize: 9,
       letterSpacing: "0.25em",
       padding: "3px 8px",
@@ -3235,7 +3912,7 @@ function Tricorder() {
       color: riskColor(sample.risk),
       borderRadius: 2,
       textShadow: `0 0 4px ${riskColor(sample.risk)}66`
-    } }, sample.risk)), /* @__PURE__ */ React.createElement("div", { style: {
+    }) }, sample.risk)), /* @__PURE__ */ React.createElement("div", { style: {
       border: `1px solid ${C.line}`,
       borderRadius: 6,
       padding: 8,
@@ -3249,7 +3926,7 @@ function Tricorder() {
         scanning,
         progress
       }
-    ) : /* @__PURE__ */ React.createElement(Spectrogram, { modeId: mode, scanning, progress })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 } }, (sample ? sample.vitals : [
+    ) : /* @__PURE__ */ React.createElement(Spectrogram, { modeId: mode, scanning, progress })), getMode(mode).usesCompass && /* @__PURE__ */ React.createElement(EmCompass, null), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6, marginBottom: 10 } }, (sample ? sample.vitals : [
       ["--", "---", C.textFaint],
       ["--", "---", C.textFaint],
       ["--", "---", C.textFaint],
@@ -3276,8 +3953,7 @@ function Tricorder() {
         onClick: () => switchMode(m.id),
         disabled: scanning
       }
-    ))), /* @__PURE__ */ React.createElement("button", { onClick: doScan, disabled: scanning, style: {
-      ...mono,
+    ))), /* @__PURE__ */ React.createElement("button", { onClick: doScan, disabled: scanning, style: __spreadProps(__spreadValues({}, mono), {
       width: "100%",
       padding: "18px",
       fontSize: 18,
@@ -3292,7 +3968,7 @@ function Tricorder() {
       transition: "color 0.2s, border-color 0.2s",
       position: "relative",
       overflow: "hidden"
-    } }, scanning ? "\u25C9 SCANNING" : "\u25C9 SCAN", scanning && /* @__PURE__ */ React.createElement("div", { style: {
+    }) }, scanning ? "\u25C9 SCANNING" : "\u25C9 SCAN", scanning && /* @__PURE__ */ React.createElement("div", { style: {
       position: "absolute",
       bottom: 0,
       left: 0,
@@ -3333,9 +4009,11 @@ function Tricorder() {
           env,
           coords,
           battery
-        })
+        }),
+        themeId,
+        onThemeChange: setThemeId
       }
-    ), view === "mission" && /* @__PURE__ */ React.createElement(MissionView, { progress: missionProgress, completed: completedMissions }), /* @__PURE__ */ React.createElement("div", { style: {
+    ), view === "mission" && /* @__PURE__ */ React.createElement(MissionView, { progress: missionProgress, completed: completedMissions, onReset: resetMissions }), /* @__PURE__ */ React.createElement("div", { style: {
       marginTop: 14,
       display: "grid",
       gridTemplateColumns: "1fr 1fr 1fr",
@@ -3344,14 +4022,59 @@ function Tricorder() {
       color: C.textDim,
       borderTop: `1px solid ${C.line}`,
       paddingTop: 10
-    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "COORDS"), /* @__PURE__ */ React.createElement("div", { style: { color: C.text, marginTop: 2, fontSize: 10 } }, coords ? `${coords.lat.toFixed(2)}\xB0${coords.lat >= 0 ? "N" : "S"} ${Math.abs(coords.lon).toFixed(2)}\xB0${coords.lon >= 0 ? "E" : "W"}` : "\u2014 LOCATING \u2014")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ENV"), /* @__PURE__ */ React.createElement("div", { style: { color: env.color, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color }), " ", env.label.toLowerCase(), env.real && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 4, color: env.color, opacity: 0.55, fontSize: 8, letterSpacing: "0.2em" } }, "\xB7LIVE"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ELAPSED"), /* @__PURE__ */ React.createElement("div", { style: { color: C.red, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " ", fmtElapsed(sessionMs)))))
+    } }, /* @__PURE__ */ React.createElement("div", { onClick: () => {
+      if (geoState !== "ok") requestGeo();
+    }, style: { cursor: geoState !== "ok" ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "COORDS"), /* @__PURE__ */ React.createElement("div", { style: {
+      color: geoState === "denied" ? C.amber : geoState === "unavailable" || geoState === "timeout" ? C.amberDim : C.text,
+      marginTop: 2,
+      fontSize: 10
+    } }, coords ? `${coords.lat.toFixed(2)}\xB0${coords.lat >= 0 ? "N" : "S"} ${Math.abs(coords.lon).toFixed(2)}\xB0${coords.lon >= 0 ? "E" : "W"}` : geoState === "locating" ? "\u2014 LOCATING \u2014" : geoState === "denied" ? "\u2014 DENIED \xB7 TAP \u2014" : geoState === "timeout" ? "\u2014 TIMEOUT \xB7 TAP \u2014" : geoState === "unavailable" ? "\u2014 UNAVAILABLE \u2014" : "\u2014 TAP TO LOCATE \u2014")), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ENV"), /* @__PURE__ */ React.createElement("div", { style: { color: env.color, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: env.color }), " ", env.label.toLowerCase(), env.real && /* @__PURE__ */ React.createElement("span", { style: { marginLeft: 4, color: env.color, opacity: 0.55, fontSize: 8, letterSpacing: "0.2em" } }, "\xB7LIVE"))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Label, { size: 7 }, "ELAPSED"), /* @__PURE__ */ React.createElement("div", { style: { color: C.red, marginTop: 2, fontSize: 10 } }, /* @__PURE__ */ React.createElement(Dot, { color: C.red, blink: true }), " ", fmtElapsed(sessionMs)))))
   );
 }
 
+  // ErrorBoundary — catches React render errors. Module-load errors
+  // are caught by the outer try/catch and surfaced to the error display.
+  function ErrorBoundary(props) { return null; }
+  ErrorBoundary = (function (parent) {
+    function EB(props) {
+      parent.call(this, props);
+      this.state = { err: null, info: null };
+    }
+    EB.prototype = Object.create(parent.prototype);
+    EB.prototype.constructor = EB;
+    EB.getDerivedStateFromError = function (err) { return { err: err }; };
+    EB.prototype.componentDidCatch = function (err, info) {
+      this.setState({ err: err, info: info });
+    };
+    EB.prototype.render = function () {
+      if (!this.state.err) return this.props.children;
+      var e = this.state.err;
+      var stack = (e && e.stack) || (this.state.info && this.state.info.componentStack) || "";
+      return React.createElement("div", { style: {
+        color: "#c25050",
+        fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+        fontSize: 11, padding: 20,
+        whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5
+      }},
+        "\u25EF REACT RENDER ERROR\n\n",
+        (e && e.message) || String(e) || "unknown",
+        "\n\n", stack
+      );
+    };
+    return EB;
+  })(React.Component);
+
   ReactDOM.createRoot(document.getElementById("root")).render(
-    React.createElement(Tricorder)
+    React.createElement(ErrorBoundary, null, React.createElement(Tricorder))
   );
+  // Tell the error handler we're past boot — after this, errors
+  // log to console instead of replacing the working UI.
+  if (window.__markMounted) window.__markMounted();
 })();
+} catch (e) {
+  window.__showBootError && window.__showBootError("module-load",
+    (e && e.message) || String(e), null, null, e && e.stack);
+}
   </script>
 </body>
 </html>
