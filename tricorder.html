@@ -76,7 +76,7 @@
         show("promise", msg, null, null, reason && reason.stack);
       });
       window.__showBootError = show;
-      window.__BUILD = "2026-04-28.0622";
+      window.__BUILD = "2026-04-29.0144";
     })();
   </script>
   <script>
@@ -1299,6 +1299,70 @@ const buildFieldReport = ({ profile, history, missionProgress, completedMissions
   out.push(dline);
   return out.join("\n");
 };
+const SCENES = {
+  idle: { label: "IDLE", desc: "peaceful \xB7 all green \xB7 nothing happening" },
+  scanning: { label: "SCANNING", desc: "perpetual scan \xB7 waveforms active" },
+  alert: { label: "ALERT", desc: "red banners \xB7 urgent text streaming" },
+  damaged: { label: "DAMAGED", desc: "glitches \xB7 partial UI failures" },
+  comms: { label: "COMMS", desc: "incoming messages every few seconds" }
+};
+const URL_PARAMS = (() => {
+  if (typeof window === "undefined" || !window.location) return {};
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const out = {};
+    for (const [k, v] of params.entries()) out[k] = v;
+    return out;
+  } catch (_) {
+    return {};
+  }
+})();
+const ACTIVE_SCENE = SCENES[URL_PARAMS.scene] ? URL_PARAMS.scene : null;
+const SCENE_OVERRIDES = {
+  subject: URL_PARAMS.subject || null,
+  risk: URL_PARAMS.risk || null,
+  notes: URL_PARAMS.notes || null,
+  // Director mode is a separate flag — opens the hidden control
+  // panel without requiring the long-press gesture.
+  director: URL_PARAMS.dev === "1" || URL_PARAMS.director === "1"
+};
+const PRESENCE_ACTIVITIES = {
+  vance: [
+    "taking core sample",
+    "logging mineral data",
+    "reviewing sensor sweep",
+    "marking specimen 4",
+    "comparing readings",
+    "consulting field manual"
+  ],
+  imani: [
+    "analyzing biology slide",
+    "running tissue assay",
+    "calibrating microscope",
+    "documenting findings",
+    "cross-checking samples",
+    "reviewing pathology"
+  ],
+  kato: [
+    "holding perimeter",
+    "scanning approach vectors",
+    "monitoring tactical net",
+    "running security sweep",
+    "checking fall-back route",
+    "observing horizon"
+  ]
+};
+const BEARINGS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+const newPresence = (id) => {
+  var _a;
+  return {
+    distance: 8 + Math.floor(Math.random() * 100),
+    // meters
+    bearing: BEARINGS[Math.floor(Math.random() * BEARINGS.length)],
+    activityIdx: Math.floor(Math.random() * (((_a = PRESENCE_ACTIVITIES[id]) == null ? void 0 : _a.length) || 1)),
+    activityChangedAt: Date.now()
+  };
+};
 function Spectrogram({ modeId, scanning, progress }) {
   const [t, setT] = useState(0);
   useEffect(() => {
@@ -2407,10 +2471,15 @@ const dispatchEffects = (out, api) => {
     }
   }
 };
-function CommsView({ messages, onTransmit }) {
-  const [recipient, setRecipient] = useState("ship");
+function CommsView({ messages, onTransmit, initialRecipient }) {
+  const [recipient, setRecipient] = useState(initialRecipient || "ship");
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
+  useEffect(() => {
+    if (initialRecipient && initialRecipient !== recipient) {
+      setRecipient(initialRecipient);
+    }
+  }, [initialRecipient]);
   const member = getTeamMember(recipient);
   const recipientLabel = recipient === "ship" ? "SHIP" : member.name.toUpperCase();
   const canSend = draft.trim().length > 0;
@@ -2511,7 +2580,7 @@ function CommsView({ messages, onTransmit }) {
     whiteSpace: "nowrap"
   }) }, "SEND \u25B6"))));
 }
-function MissionView({ progress, completed, onReset }) {
+function MissionView({ progress, completed, onReset, awayPresence, onMessageCrew }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const resetTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(resetTimerRef.current), []);
@@ -2526,7 +2595,47 @@ function MissionView({ progress, completed, onReset }) {
     }
   };
   const hasState = completed.length > 0 || Object.values(progress || {}).some((v) => (v != null ? v : 0) > 0);
-  return /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "62vh", overflowY: "auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "OBJECTIVES"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, completed.length, " / ", MISSIONS.length, " COMPLETE"), hasState && /* @__PURE__ */ React.createElement("button", { onClick: handleReset, style: __spreadProps(__spreadValues({}, mono), {
+  return /* @__PURE__ */ React.createElement("div", { style: { padding: "8px 0 4px", maxHeight: "62vh", overflowY: "auto" } }, awayPresence && /* @__PURE__ */ React.createElement("div", { style: {
+    marginBottom: 14,
+    padding: "10px 12px",
+    border: `1px solid ${C.line}`,
+    borderRadius: 6,
+    background: "rgba(0,0,0,0.35)"
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "AWAY TEAM"), /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.textFaint }, "tap to ping")), AWAY_TEAM.filter((m) => m.id !== "ship").map((m) => {
+    var _a;
+    const p = awayPresence[m.id];
+    if (!p) return null;
+    const activity = ((_a = PRESENCE_ACTIVITIES[m.id]) == null ? void 0 : _a[p.activityIdx]) || "\u2014";
+    return /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        key: m.id,
+        onClick: () => onMessageCrew == null ? void 0 : onMessageCrew(m.id),
+        style: {
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "6px 0",
+          cursor: "pointer",
+          borderTop: m.id === "vance" ? "none" : `1px solid ${C.line}`
+        }
+      },
+      /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 auto", minWidth: 64 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.cyan, letterSpacing: "0.25em" }) }, m.name.toUpperCase()), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textFaint, marginTop: 2, letterSpacing: "0.15em" }) }, m.role)),
+      /* @__PURE__ */ React.createElement("div", { style: { flex: 1, padding: "0 10px", minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
+        fontSize: 9,
+        color: C.textDim,
+        lineHeight: 1.3,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }) }, activity)),
+      /* @__PURE__ */ React.createElement("div", { style: { flex: "0 0 auto", textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), {
+        fontSize: 11,
+        color: C.amber,
+        textShadow: `0 0 4px ${C.amber}55`
+      }) }, p.distance, "m"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.cyanDim, marginTop: 2, letterSpacing: "0.2em" }) }, p.bearing))
+    );
+  })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "OBJECTIVES"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, completed.length, " / ", MISSIONS.length, " COMPLETE"), hasState && /* @__PURE__ */ React.createElement("button", { onClick: handleReset, style: __spreadProps(__spreadValues({}, mono), {
     fontSize: 8,
     color: confirmReset ? C.red : C.redDim,
     letterSpacing: "0.3em",
@@ -3015,6 +3124,201 @@ function OnboardingView({ onComplete }) {
     letterSpacing: "0.25em"
   } }, /* @__PURE__ */ React.createElement("span", null, "STATUS ", /* @__PURE__ */ React.createElement("span", { style: { color: C.amber } }, "AWAITING INPUT")), /* @__PURE__ */ React.createElement("span", null, "SD ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyanDim } }, stardate()))));
 }
+function DirectorPanel({
+  onClose,
+  onForceScan,
+  onSendMessage,
+  frozenStardate,
+  onFreezeStardate,
+  onUnfreezeStardate,
+  activeScene
+}) {
+  const [subject, setSubject] = useState("");
+  const [risk, setRisk] = useState("CAUTION");
+  const [notes, setNotes] = useState("");
+  const [from, setFrom] = useState("BRIDGE");
+  const [msgTxt, setMsgTxt] = useState("");
+  const RISK_OPTS = ["NONE", "LOW", "CAUTION", "UNKNOWN", "HIGH", "EXTREME"];
+  const FROM_OPTS = ["BRIDGE", "CAPTAIN", "ENGINEERING", "MED BAY", "SCIENCE", "TACTICAL", "HELM"];
+  return /* @__PURE__ */ React.createElement("div", { style: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 200,
+    background: "rgba(0,0,0,0.85)",
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    padding: 16,
+    paddingTop: 24,
+    overflowY: "auto"
+  }, onClick: (e) => {
+    if (e.target === e.currentTarget) onClose();
+  } }, /* @__PURE__ */ React.createElement("div", { style: {
+    maxWidth: 380,
+    width: "100%",
+    background: C.panel,
+    border: `1px solid ${C.amber}`,
+    borderRadius: 6,
+    padding: 14,
+    boxShadow: `0 0 24px ${C.amber}33`
+  } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } }, /* @__PURE__ */ React.createElement(Label, { size: 9, color: C.amber }, "\u25C9 DIRECTOR PANEL"), /* @__PURE__ */ React.createElement("button", { onClick: onClose, style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 9,
+    padding: "3px 8px",
+    letterSpacing: "0.3em",
+    border: `1px solid ${C.line}`,
+    background: "transparent",
+    color: C.textDim,
+    borderRadius: 3,
+    cursor: "pointer"
+  }) }, "CLOSE \u2715")), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.amberDim, marginBottom: 14, lineHeight: 1.5 }) }, "film / prop control \xB7 changes are one-shot or session-only \xB7 not persisted"), activeScene && /* @__PURE__ */ React.createElement("div", { style: {
+    marginBottom: 14,
+    padding: "8px 10px",
+    border: `1px dashed ${C.amber}`,
+    borderRadius: 4,
+    background: `${C.amber}10`
+  } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.amber }, "ACTIVE SCENE"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.text, marginTop: 4 }) }, SCENES[activeScene].label, " \xB7 ", SCENES[activeScene].desc)), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "FORCE NEXT SCAN"), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      value: subject,
+      onChange: (e) => setSubject(e.target.value),
+      placeholder: "subject (e.g. Medusan lifeform)",
+      style: __spreadProps(__spreadValues({}, mono), {
+        width: "100%",
+        boxSizing: "border-box",
+        padding: "6px 8px",
+        marginTop: 4,
+        fontSize: 11,
+        background: "rgba(0,0,0,0.5)",
+        color: C.text,
+        border: `1px solid ${C.line}`,
+        borderRadius: 3,
+        outline: "none"
+      })
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      value: notes,
+      onChange: (e) => setNotes(e.target.value),
+      placeholder: "notes / description (optional)",
+      style: __spreadProps(__spreadValues({}, mono), {
+        width: "100%",
+        boxSizing: "border-box",
+        padding: "6px 8px",
+        marginTop: 6,
+        fontSize: 11,
+        background: "rgba(0,0,0,0.5)",
+        color: C.text,
+        border: `1px solid ${C.line}`,
+        borderRadius: 3,
+        outline: "none"
+      })
+    }
+  ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" } }, RISK_OPTS.map((r) => /* @__PURE__ */ React.createElement("button", { key: r, onClick: () => setRisk(r), style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 8,
+    padding: "4px 7px",
+    letterSpacing: "0.2em",
+    border: `1px solid ${risk === r ? riskColor(r) : C.line}`,
+    background: risk === r ? `${riskColor(r)}22` : "transparent",
+    color: risk === r ? riskColor(r) : C.textDim,
+    borderRadius: 3,
+    cursor: "pointer"
+  }) }, r))), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => {
+        onForceScan({ subject: subject.trim(), risk, notes: notes.trim() });
+        setSubject("");
+        setNotes("");
+      },
+      disabled: !subject.trim(),
+      style: __spreadProps(__spreadValues({}, mono), {
+        width: "100%",
+        marginTop: 8,
+        padding: "8px",
+        fontSize: 10,
+        letterSpacing: "0.3em",
+        border: `1px solid ${subject.trim() ? C.cyan : C.line}`,
+        background: subject.trim() ? `${C.cyan}14` : "transparent",
+        color: subject.trim() ? C.cyan : C.textDim,
+        borderRadius: 3,
+        cursor: subject.trim() ? "pointer" : "default"
+      })
+    },
+    "QUEUE OVERRIDE"
+  )), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 14 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "INJECT MESSAGE"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" } }, FROM_OPTS.map((f) => /* @__PURE__ */ React.createElement("button", { key: f, onClick: () => setFrom(f), style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 8,
+    padding: "4px 6px",
+    letterSpacing: "0.15em",
+    border: `1px solid ${from === f ? C.amber : C.line}`,
+    background: from === f ? `${C.amber}14` : "transparent",
+    color: from === f ? C.amber : C.textDim,
+    borderRadius: 3,
+    cursor: "pointer"
+  }) }, f))), /* @__PURE__ */ React.createElement(
+    "textarea",
+    {
+      value: msgTxt,
+      onChange: (e) => setMsgTxt(e.target.value),
+      placeholder: "message text...",
+      rows: 2,
+      style: __spreadProps(__spreadValues({}, mono), {
+        width: "100%",
+        boxSizing: "border-box",
+        padding: "6px 8px",
+        marginTop: 6,
+        fontSize: 11,
+        background: "rgba(0,0,0,0.5)",
+        color: C.text,
+        border: `1px solid ${C.line}`,
+        borderRadius: 3,
+        outline: "none",
+        resize: "vertical"
+      })
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => {
+        if (!msgTxt.trim()) return;
+        onSendMessage({ from, txt: msgTxt.trim() });
+        setMsgTxt("");
+      },
+      disabled: !msgTxt.trim(),
+      style: __spreadProps(__spreadValues({}, mono), {
+        width: "100%",
+        marginTop: 8,
+        padding: "8px",
+        fontSize: 10,
+        letterSpacing: "0.3em",
+        border: `1px solid ${msgTxt.trim() ? C.amber : C.line}`,
+        background: msgTxt.trim() ? `${C.amber}14` : "transparent",
+        color: msgTxt.trim() ? C.amber : C.textDim,
+        borderRadius: 3,
+        cursor: msgTxt.trim() ? "pointer" : "default"
+      })
+    },
+    "TRANSMIT"
+  )), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.cyanDim }, "STARDATE"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, alignItems: "center" } }, /* @__PURE__ */ React.createElement("span", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 11, color: frozenStardate ? C.amber : C.text, flex: 1 }) }, frozenStardate || stardate(), " ", frozenStardate && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 8, color: C.amberDim, marginLeft: 6 } }, "FROZEN")), frozenStardate ? /* @__PURE__ */ React.createElement("button", { onClick: onUnfreezeStardate, style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 9,
+    padding: "5px 10px",
+    letterSpacing: "0.25em",
+    border: `1px solid ${C.cyan}`,
+    background: `${C.cyan}14`,
+    color: C.cyan,
+    borderRadius: 3,
+    cursor: "pointer"
+  }) }, "UNFREEZE") : /* @__PURE__ */ React.createElement("button", { onClick: () => onFreezeStardate(stardate()), style: __spreadProps(__spreadValues({}, mono), {
+    fontSize: 9,
+    padding: "5px 10px",
+    letterSpacing: "0.25em",
+    border: `1px solid ${C.amber}`,
+    background: `${C.amber}14`,
+    color: C.amber,
+    borderRadius: 3,
+    cursor: "pointer"
+  }) }, "FREEZE"))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, paddingTop: 10, borderTop: `1px solid ${C.line}` } }, /* @__PURE__ */ React.createElement(Label, { size: 8, color: C.textFaint }, "URL SCENE PRESETS"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textFaint, marginTop: 4, lineHeight: 1.6, letterSpacing: "0.1em" }) }, "?scene=idle \xB7 ?scene=alert \xB7 ?scene=damaged", /* @__PURE__ */ React.createElement("br", null), "?subject=NAME \xB7 ?risk=EXTREME \xB7 ?notes=...", /* @__PURE__ */ React.createElement("br", null), "?dev=1 (open this panel on launch)"))));
+}
 const BOOT_SCRIPT = [
   // act 1 — cold start
   { at: 0, kind: "flash", color: "white", dur: 80 },
@@ -3292,6 +3596,52 @@ function Tricorder() {
   const [mode, setMode] = useState("BIO");
   const [scanning, setScanning] = useState(false);
   const opticalRef = useRef(null);
+  const [directorOpen, setDirectorOpen] = useState(SCENE_OVERRIDES.director);
+  const directorOverrideRef = useRef(null);
+  const [frozenStardate, setFrozenStardate] = useState(null);
+  const stardatePressRef = useRef(null);
+  const [commsRecipient, setCommsRecipient] = useState(null);
+  const [awayPresence, setAwayPresence] = useState(() => ({
+    vance: newPresence("vance"),
+    imani: newPresence("imani"),
+    kato: newPresence("kato")
+  }));
+  useEffect(() => {
+    const id = setInterval(() => {
+      setAwayPresence((prev) => {
+        const next = __spreadValues({}, prev);
+        for (const key of Object.keys(next)) {
+          const p = next[key];
+          const dd = (Math.random() - 0.5) * 14;
+          const newDist = Math.max(3, Math.min(240, Math.round(p.distance + dd)));
+          let newBearing = p.bearing;
+          if (Math.random() < 0.1) {
+            const i = BEARINGS.indexOf(p.bearing);
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            newBearing = BEARINGS[(i + dir + BEARINGS.length) % BEARINGS.length];
+          }
+          let newActivityIdx = p.activityIdx;
+          let newChangedAt = p.activityChangedAt;
+          const heldFor = Date.now() - p.activityChangedAt;
+          if (heldFor > 9e4 + Math.random() * 9e4) {
+            const pool = PRESENCE_ACTIVITIES[key] || [];
+            if (pool.length) {
+              newActivityIdx = (p.activityIdx + 1 + Math.floor(Math.random() * (pool.length - 1))) % pool.length;
+              newChangedAt = Date.now();
+            }
+          }
+          next[key] = {
+            distance: newDist,
+            bearing: newBearing,
+            activityIdx: newActivityIdx,
+            activityChangedAt: newChangedAt
+          };
+        }
+        return next;
+      });
+    }, 6e3);
+    return () => clearInterval(id);
+  }, []);
   const [progress, setProgress] = useState(0);
   const [sample, setSample] = useState(null);
   const [scanLog, setScanLog] = useState([]);
@@ -3667,7 +4017,15 @@ function Tricorder() {
     t = setTimeout(() => {
       pushMsg({ from: "BRIDGE", txt: `${profile.last}, tricorder linked. Receiving your telemetry.` });
       const sched = () => {
-        const d = 18e3 + Math.random() * 3e4;
+        let base = 18e3, jitter = 3e4;
+        if (ACTIVE_SCENE === "alert" || ACTIVE_SCENE === "comms") {
+          base = 5e3;
+          jitter = 8e3;
+        } else if (ACTIVE_SCENE === "idle") {
+          base = 6e4;
+          jitter = 9e4;
+        }
+        const d = base + Math.random() * jitter;
         t = setTimeout(() => {
           pushMsg(generateShipMessage());
           sched();
@@ -3715,6 +4073,15 @@ function Tricorder() {
       chosen = pickOpticalSample(modeConfig.samples, fp) || pickRandom(modeConfig.samples);
     } else {
       chosen = pickRandom(modeConfig.samples);
+    }
+    const ovr = directorOverrideRef.current || SCENE_OVERRIDES;
+    if (ovr.subject || ovr.risk || ovr.notes) {
+      chosen = __spreadProps(__spreadValues({}, chosen), {
+        subject: ovr.subject || chosen.subject,
+        risk: ovr.risk || chosen.risk,
+        notes: ovr.notes || chosen.notes
+      });
+      if (directorOverrideRef.current) directorOverrideRef.current = null;
     }
     const start = Date.now(), duration = 1800;
     const scanHandle = audio.play("scan");
@@ -3792,7 +4159,29 @@ function Tricorder() {
       borderBottom: `1px solid ${C.line}`,
       paddingBottom: 8,
       marginBottom: 10
-    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.cyan, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` }) }, profile.ship.toUpperCase(), " \xB7 MK-VII"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textDim, letterSpacing: "0.25em", marginTop: 2 }) }, "OP ", profile.last.toUpperCase(), ", ", (profile.first.charAt(0) || "").toUpperCase(), ". \xB7", " ", /* @__PURE__ */ React.createElement("span", { style: { color: C.cyanDim } }, "SD ", stardate(clock)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } }, fullscreenSupported && /* @__PURE__ */ React.createElement(
+    } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 10, color: C.cyan, letterSpacing: "0.3em", textShadow: `0 0 6px ${C.cyan}66` }) }, profile.ship.toUpperCase(), " \xB7 MK-VII"), /* @__PURE__ */ React.createElement("div", { style: __spreadProps(__spreadValues({}, mono), { fontSize: 8, color: C.textDim, letterSpacing: "0.25em", marginTop: 2 }) }, "OP ", profile.last.toUpperCase(), ", ", (profile.first.charAt(0) || "").toUpperCase(), ". \xB7", " ", /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        onPointerDown: () => {
+          stardatePressRef.current = setTimeout(() => {
+            setDirectorOpen(true);
+            audio.play("confirm");
+          }, 700);
+        },
+        onPointerUp: () => clearTimeout(stardatePressRef.current),
+        onPointerLeave: () => clearTimeout(stardatePressRef.current),
+        onPointerCancel: () => clearTimeout(stardatePressRef.current),
+        style: {
+          color: frozenStardate ? C.amber : C.cyanDim,
+          cursor: "pointer",
+          userSelect: "none",
+          textShadow: frozenStardate ? `0 0 4px ${C.amber}66` : "none"
+        },
+        title: "long-press for director controls"
+      },
+      "SD ",
+      frozenStardate || stardate(clock)
+    ))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } }, fullscreenSupported && /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: toggleFullscreen,
@@ -3867,7 +4256,31 @@ function Tricorder() {
       marginBottom: 12,
       letterSpacing: "0.22em",
       textTransform: "uppercase"
-    } }, /* @__PURE__ */ React.createElement("span", null, statusLeft), /* @__PURE__ */ React.createElement("span", null, statusCenter), /* @__PURE__ */ React.createElement("span", null, timeStr)), toast && /* @__PURE__ */ React.createElement(Toast, { msg: toast }), view === "scan" && /* @__PURE__ */ React.createElement(React.Fragment, null, env.id !== "clear" && /* @__PURE__ */ React.createElement("div", { style: {
+    } }, /* @__PURE__ */ React.createElement("span", null, statusLeft), /* @__PURE__ */ React.createElement("span", null, statusCenter), /* @__PURE__ */ React.createElement("span", null, timeStr)), toast && /* @__PURE__ */ React.createElement(Toast, { msg: toast }), directorOpen && /* @__PURE__ */ React.createElement(
+      DirectorPanel,
+      {
+        onClose: () => setDirectorOpen(false),
+        onForceScan: (ovr) => {
+          directorOverrideRef.current = ovr;
+          audio.play("tick");
+          pushMsg({ from: "BRIDGE", txt: `Override queued: ${ovr.subject}.` });
+        },
+        onSendMessage: (msg) => {
+          pushMsg(msg);
+          audio.play("incoming");
+        },
+        frozenStardate,
+        onFreezeStardate: (sd) => {
+          setFrozenStardate(sd);
+          audio.play("tick");
+        },
+        onUnfreezeStardate: () => {
+          setFrozenStardate(null);
+          audio.play("tick");
+        },
+        activeScene: ACTIVE_SCENE
+      }
+    ), view === "scan" && /* @__PURE__ */ React.createElement(React.Fragment, null, env.id !== "clear" && /* @__PURE__ */ React.createElement("div", { style: {
       border: `1px solid ${env.color}`,
       borderRadius: 4,
       padding: "6px 10px",
@@ -3994,7 +4407,7 @@ function Tricorder() {
           neural: snap.neural
         }
       });
-    } }), view === "comms" && /* @__PURE__ */ React.createElement(CommsView, { messages, onTransmit: transmit }), view === "log" && /* @__PURE__ */ React.createElement(
+    } }), view === "comms" && /* @__PURE__ */ React.createElement(CommsView, { messages, onTransmit: transmit, initialRecipient: commsRecipient }), view === "log" && /* @__PURE__ */ React.createElement(
       HistoryView,
       {
         history,
@@ -4013,7 +4426,19 @@ function Tricorder() {
         themeId,
         onThemeChange: setThemeId
       }
-    ), view === "mission" && /* @__PURE__ */ React.createElement(MissionView, { progress: missionProgress, completed: completedMissions, onReset: resetMissions }), /* @__PURE__ */ React.createElement("div", { style: {
+    ), view === "mission" && /* @__PURE__ */ React.createElement(
+      MissionView,
+      {
+        progress: missionProgress,
+        completed: completedMissions,
+        onReset: resetMissions,
+        awayPresence,
+        onMessageCrew: (id) => {
+          setCommsRecipient(id);
+          changeView("comms");
+        }
+      }
+    ), /* @__PURE__ */ React.createElement("div", { style: {
       marginTop: 14,
       display: "grid",
       gridTemplateColumns: "1fr 1fr 1fr",
