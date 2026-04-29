@@ -21,6 +21,8 @@ The app simulates a field-scientist's handheld device. Six tabs across the top o
 
 The header shows the ship name, operator initial, current stardate, battery %, mute toggle, and (on supported platforms) a fullscreen toggle. The footer shows live coordinates, current environment tier with interference percentage, and session elapsed time.
 
+Wanna try a full-on starship bridge simulator?  [Click Here](https://github.com/mbparks/StarshipSimulatorASMR
+
 ---
 
 ## For filmmakers
