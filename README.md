@@ -254,3 +254,9 @@ If you use it in a film, short, music video, or any other production, I'd love t
 ## Contributing
 
 PRs and issues welcome. The architecture makes new features cheap to add — see the registry table above. If you build something cool, send a PR. If you customize for your own production, fork freely.
+
+---
+
+*Drawn with care for anyone who's ever looked up at the stars and imagined what it would be like to be out there.*
+
+Like what you see? [Buy me a coffee to keep the energy going.](https://ko-fi.com/mbparks)
